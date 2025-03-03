@@ -1,9 +1,7 @@
 import { BaseChatModel } from "langchain/chat_models/base";
 import { ChatOpenAI } from "langchain/chat_models/openai";
 import { ChatAnthropic } from "langchain/chat_models/anthropic";
-import { ChatMistral } from "langchain/chat_models/mistral";
 import { ChatGoogleVertexAI } from "langchain/chat_models/googlevertexai";
-import { ChatCohere } from "langchain/chat_models/cohere";
 import { ChatOllama } from "langchain/chat_models/ollama";
 
 import {
@@ -11,9 +9,7 @@ import {
     LLMProvider,
     OpenAIConfig,
     AnthropicConfig,
-    MistralConfig,
     GrokConfig,
-    CohereConfig,
     OllamaConfig,
 } from "./types";
 
@@ -27,15 +23,10 @@ export function isOpenAIConfig(config: LLMConfig): config is OpenAIConfig {
 /**
  * Type guard for Anthropic config
  */
-export function isAnthropicConfig(config: LLMConfig): config is AnthropicConfig {
+export function isAnthropicConfig(
+    config: LLMConfig
+): config is AnthropicConfig {
     return config.provider === "anthropic";
-}
-
-/**
- * Type guard for Mistral config
- */
-export function isMistralConfig(config: LLMConfig): config is MistralConfig {
-    return config.provider === "mistral";
 }
 
 /**
@@ -43,13 +34,6 @@ export function isMistralConfig(config: LLMConfig): config is MistralConfig {
  */
 export function isGrokConfig(config: LLMConfig): config is GrokConfig {
     return config.provider === "grok";
-}
-
-/**
- * Type guard for Cohere config
- */
-export function isCohereConfig(config: LLMConfig): config is CohereConfig {
-    return config.provider === "cohere";
 }
 
 /**
@@ -71,13 +55,19 @@ export function createModel(config: LLMConfig): BaseChatModel {
 
     switch (provider) {
         case "openai": {
-            const { apiKey, organization, frequencyPenalty, presencePenalty, topP, ...rest } = config as OpenAIConfig;
+            const {
+                apiKey,
+                organization,
+                frequencyPenalty,
+                presencePenalty,
+                topP,
+                ...rest
+            } = config as OpenAIConfig;
             return new ChatOpenAI({
                 modelName: model,
                 temperature: temperature ?? 0.7,
                 maxTokens,
                 openAIApiKey: apiKey,
-                organization,
                 frequencyPenalty,
                 presencePenalty,
                 topP,
@@ -86,7 +76,8 @@ export function createModel(config: LLMConfig): BaseChatModel {
         }
 
         case "anthropic": {
-            const { apiKey, topK, topP, maxTokensToSample, ...rest } = config as AnthropicConfig;
+            const { apiKey, topK, topP, maxTokensToSample, ...rest } =
+                config as AnthropicConfig;
             return new ChatAnthropic({
                 modelName: model,
                 temperature: temperature ?? 0.7,
@@ -99,54 +90,24 @@ export function createModel(config: LLMConfig): BaseChatModel {
             });
         }
 
-        case "mistral": {
-            const { apiKey, topP, safeMode, randomSeed, ...rest } = config as MistralConfig;
-            return new ChatMistral({
-                modelName: model,
-                temperature: temperature ?? 0.7,
-                maxTokens,
-                mistralApiKey: apiKey,
-                topP,
-                safePrompt: safeMode,
-                randomSeed,
-                ...rest,
-            });
-        }
-
         case "grok": {
             // For Grok, we use the Vertex AI interface as it's a common approach
             const { apiKey, topP, ...rest } = config as GrokConfig;
             return new ChatGoogleVertexAI({
-                model,
                 temperature: temperature ?? 0.7,
                 maxOutputTokens: maxTokens,
-                apiKey,
                 topP,
-                ...rest,
-            });
-        }
-
-        case "cohere": {
-            const { apiKey, k, p, ...rest } = config as CohereConfig;
-            return new ChatCohere({
-                model,
-                temperature: temperature ?? 0.7,
-                maxTokens,
-                apiKey,
-                k,
-                p,
                 ...rest,
             });
         }
 
         case "ollama": {
-            const { baseUrl, format, keepAlive, numKeep, ...rest } = config as OllamaConfig;
+            const { baseUrl, format, keepAlive, numKeep, ...rest } =
+                config as OllamaConfig;
             return new ChatOllama({
-                model,
                 temperature: temperature ?? 0.7,
                 baseUrl,
                 format,
-                keepAlive,
                 numKeep,
                 ...rest,
             });
