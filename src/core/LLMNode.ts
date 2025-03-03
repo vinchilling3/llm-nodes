@@ -27,9 +27,9 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
         this.llmConfig = options.llmConfig;
 
         // Ensure provider is set for backward compatibility
-        const config = { 
+        const config = {
             ...options.llmConfig,
-            provider: options.llmConfig.provider || "openai" 
+            provider: options.llmConfig.provider || "openai",
         } as LLMConfig;
 
         // Initialize LLM from config using the factory
@@ -49,7 +49,7 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
             try {
                 // The expression could be complex like "keywords.join(', ')"
                 // eslint-disable-next-line no-new-func
-                const evalFn = new Function('input', `return ${key}`);
+                const evalFn = new Function("input", `return ${key}`);
                 return String(evalFn(input) ?? "");
             } catch (e) {
                 // If evaluation fails, fall back to simple object property access
@@ -61,9 +61,12 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
     /**
      * Handle the system prompt based on provider capabilities
      */
-    protected handleSystemPrompt(provider: LLMProvider, userPrompt: string): { 
-        messages: Array<SystemMessage | HumanMessage | AIMessage>,
-        options?: Record<string, any>
+    protected handleSystemPrompt(
+        provider: LLMProvider,
+        userPrompt: string
+    ): {
+        messages: Array<SystemMessage | HumanMessage | AIMessage>;
+        options?: Record<string, any>;
     } {
         const messages = [];
         let options = {};
@@ -92,10 +95,13 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
      */
     async execute(input: TInput): Promise<TOutput> {
         const promptText = this.generatePrompt(input);
-        const provider = this.llmConfig.provider || "openai"; 
+        const provider = this.llmConfig.provider || "openai";
 
         // Handle system prompts differently based on provider
-        const { messages, options } = this.handleSystemPrompt(provider, promptText);
+        const { messages, options } = this.handleSystemPrompt(
+            provider,
+            promptText
+        );
 
         // Call the LLM with appropriate messages and options
         const response = await this.llm.call(messages, options);
