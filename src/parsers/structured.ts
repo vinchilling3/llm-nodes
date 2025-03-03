@@ -8,7 +8,8 @@ export function regexParser<T>(patterns: Record<keyof T, RegExp>): ResponseParse
     const result = {} as T;
     
     for (const [key, pattern] of Object.entries(patterns)) {
-      const match = rawResponse.match(pattern);
+      const regexPattern = pattern as RegExp;
+      const match = rawResponse.match(regexPattern);
       
       if (match && match[1]) {
         (result as any)[key] = match[1].trim();

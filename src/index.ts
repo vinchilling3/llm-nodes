@@ -5,8 +5,32 @@ export {
   LLMConfig,
   NodeOptions,
   PromptTemplate,
-  ResponseParser
+  ResponseParser,
+  // New provider types
+  LLMProvider,
+  BaseLLMConfig,
+  OpenAIConfig,
+  AnthropicConfig,
+  MistralConfig,
+  GrokConfig,
+  CohereConfig,
+  OllamaConfig,
+  OtherProviderConfig
 } from './core/types';
+
+// Model factory exports
+export {
+  createModel,
+  getApiKeyEnvVar,
+  supportsSystemMessages,
+  // Type guards
+  isOpenAIConfig,
+  isAnthropicConfig,
+  isMistralConfig,
+  isGrokConfig,
+  isCohereConfig,
+  isOllamaConfig
+} from './core/modelFactory';
 
 // Parser exports
 export { jsonParser, jsonFieldParser } from './parsers/json';
