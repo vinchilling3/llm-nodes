@@ -115,6 +115,10 @@ export class RAGNode<TInput, TOutput> extends LLMNode<
             llmConfig: options.llmConfig,
             parser: (rawResponse: string) => ({} as RAGResponse<TOutput>), // Will be implemented
         });
+        
+        this.retriever = options.retriever;
+        this.maxDocuments = options.maxDocuments ?? 3;
+        this.outputParser = options.outputParser;
     }
 
     /**

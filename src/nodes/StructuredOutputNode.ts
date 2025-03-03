@@ -68,6 +68,9 @@ export class StructuredOutputNode<TInput, TOutput> extends LLMNode<
             llmConfig: options.llmConfig,
             parser: {} as ResponseParser<TOutput>, // Will be implemented
         });
+        
+        this.schema = options.schema;
+        this.maxRetries = options.maxRetries ?? 2;
     }
 
     /**

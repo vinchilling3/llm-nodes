@@ -83,6 +83,9 @@ export class ClassificationNode<
             parser: (rawResponse: string) =>
                 ({} as ClassificationResult<TCategory>), // Will be implemented
         });
+        
+        this.categories = options.categories;
+        this.includeExplanation = options.includeExplanation ?? false;
     }
 
     /**

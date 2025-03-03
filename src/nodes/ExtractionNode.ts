@@ -100,6 +100,9 @@ export class ExtractionNode<
             llmConfig: options.llmConfig,
             parser: (rawResponse: string) => ({} as ExtractionResult<TOutput>), // Will be implemented
         });
+        
+        this.fields = options.fields;
+        this.includeConfidence = options.includeConfidence ?? true;
     }
 
     /**
