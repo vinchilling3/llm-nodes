@@ -1,0 +1,47 @@
+{
+    "name": "llm-nodes",
+    "version": "0.1.0",
+    "description": "Lightweight, composable LLM nodes for TypeScript",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "files": [
+        "dist",
+        "LICENSE",
+        "README.md"
+    ],
+    "scripts": {
+        "build": "tsc",
+        "test": "jest",
+        "prepare": "npm run build"
+    },
+    "keywords": [
+        "llm",
+        "langchain",
+        "typescript",
+        "ai",
+        "pipeline",
+        "prompt-engineering",
+        "gpt",
+        "openai"
+    ],
+    "homepage": "https://github.com/TyVanRoy/llm-nodes#readme",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/TyVanRoy/llm-nodes.git"
+    },
+    "bugs": {
+        "url": "https://github.com/TyVanRoy/llm-nodes/issues"
+    },
+    "author": "Ty Van Roy <tyvanroy@gmail.com>",
+    "license": "MIT",
+    "dependencies": {
+        "langchain": "^0.0.200",
+        "zod": "^3.22.4"
+    },
+    "devDependencies": {
+        "typescript": "^5.3.3",
+        "jest": "^29.7.0",
+        "ts-jest": "^29.1.1",
+        "@types/node": "^20.10.5"
+    }
+}
