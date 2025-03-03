@@ -10,20 +10,26 @@ npm install llm-nodes
 
 ## Features
 
-- **Simplified Node Pattern**: Combines prompt templates, LLM configuration, and response parsing into a cohesive unit
-- **Type-Safe**: Full TypeScript support with generics for input and output types
-- **Composable**: Easily connect nodes using functional composition
-- **LangChain Compatible**: Built on top of LangChain for compatibility with its ecosystem
-- **Lightweight**: Minimal API with sensible defaults for rapid development
+-   **Simplified Node Pattern**: Combines prompt templates, LLM configuration, and response parsing into a cohesive unit
+-   **Type-Safe**: Full TypeScript support with generics for input and output types
+-   **Composable**: Easily connect nodes using functional composition
+-   **Provider Agnostic**: Support for multiple LLM providers (OpenAI, Anthropic, etc.)
+-   **Specialized Nodes**: Purpose-built nodes for common tasks like classification, extraction, and RAG
+-   **Flexible Pipelines**: Advanced pipeline patterns for complex workflows
+-   **LangChain Compatible**: Built on top of LangChain for compatibility with its ecosystem
+-   **Lightweight**: Minimal API with sensible defaults for rapid development
 
 ## Quick Start
 
 ```typescript
-import { LLMNode, jsonParser } from 'llm-nodes';
+import { LLMNode, jsonParser } from "llm-nodes";
 
 // Create a simple node for sentiment analysis
-const sentimentAnalyzer = new LLMNode<{ text: string }, { sentiment: string, score: number }>({
-  promptTemplate: `
+const sentimentAnalyzer = new LLMNode<
+    { text: string },
+    { sentiment: string; score: number }
+>({
+    promptTemplate: `
     Analyze the sentiment of the following text:
     {{text}}
     
@@ -31,58 +37,185 @@ const sentimentAnalyzer = new LLMNode<{ text: string }, { sentiment: string, sco
     - sentiment: either "positive", "negative", or "neutral"
     - score: a number from -1 (very negative) to 1 (very positive)
   `,
-  llmConfig: {
-    model: "gpt-3.5-turbo",
-    temperature: 0.3
-  },
-  parser: jsonParser<{ sentiment: string, score: number }>()
+    llmConfig: {
+        provider: "openai",
+        model: "gpt-3.5-turbo",
+        temperature: 0.3,
+    },
+    parser: jsonParser<{ sentiment: string; score: number }>(),
 });
 
 // Use the node
 async function analyzeSentiment(text: string) {
-  const result = await sentimentAnalyzer.execute({ text });
-  console.log(result); // { sentiment: "positive", score: 0.8 }
-  return result;
+    const result = await sentimentAnalyzer.execute({ text });
+    console.log(result); // { sentiment: "positive", score: 0.8 }
+    return result;
 }
 
 analyzeSentiment("I'm having a fantastic day today!");
 ```
 
-## Advanced Usage: Node Composition
+## Node Types
+
+### Core LLM Node
+
+The foundation of the library, encapsulating prompt templates, LLM configuration, and response parsing:
 
 ```typescript
-// Create information extraction node
-const infoExtractor = new LLMNode<{ article: string }, { topics: string[], summary: string }>({
-  promptTemplate: `
-    Extract key information from this article:
-    {{article}}
-    
-    Provide a JSON with:
-    - topics: an array of main topics
-    - summary: a concise summary
-  `,
-  llmConfig: { model: "gpt-3.5-turbo" },
-  parser: jsonParser<{ topics: string[], summary: string }>()
+const summarizer = new LLMNode<{ text: string }, string>({
+    promptTemplate: "Summarize the following text: {{text}}",
+    llmConfig: {
+        provider: "anthropic",
+        model: "claude-3-opus-20240229",
+    },
+    parser: (text) => text,
+});
+```
+
+### Specialized LLM Nodes
+
+The library includes several specialized node types for common tasks:
+
+-   **StructuredOutputNode**: Enforces output schema with Zod validation
+-   **ClassificationNode**: Classifies inputs into predefined categories
+-   **ExtractionNode**: Extracts structured fields from text
+-   **ChainNode**: Implements multi-step reasoning chains
+-   **RAGNode**: Retrieval-augmented generation with document context
+
+```typescript
+// Example: Classification node
+const categoryClassifier = new ClassificationNode({
+    categories: ["business", "technology", "health", "entertainment"] as const,
+    llmConfig: { provider: "openai", model: "gpt-3.5-turbo" },
+    includeExplanation: true,
 });
 
-// Create a blog post generator node
-const blogWriter = new LLMNode<{ topics: string[], summary: string }, string>({
-  promptTemplate: `
-    Write a blog post based on:
-    Summary: {{summary}}
-    Topics: {{topics.join(', ')}}
-  `,
-  llmConfig: { model: "gpt-4", temperature: 0.7 },
-  parser: (text) => text // Simple text parser
+// Example: Extraction node
+const contactExtractor = new ExtractionNode({
+    fields: [
+        { name: "name", description: "Full name of the person" },
+        { name: "email", description: "Email address", format: "email" },
+        { name: "phone", description: "Phone number", required: false },
+    ],
+    promptTemplate: "Extract contact information from: {{text}}",
+    llmConfig: { provider: "anthropic", model: "claude-3-sonnet-20240229" },
+});
+```
+
+### Utility Nodes
+
+Non-LLM nodes for pipeline manipulation:
+
+-   **DataEnricherNode**: Injects external data into the pipeline
+-   **MergeNode**: Combines outputs from multiple nodes
+
+```typescript
+// Inject site map data
+const siteMapEnricher = new DataEnricherNode({
+    enricher: (article, siteMap) => ({ article, siteMap }),
+    context: {
+        pages: [
+            /* site pages */
+        ],
+    },
 });
 
-// Create a pipeline by connecting nodes
-const articleToBlogPipeline = infoExtractor.pipe(blogWriter);
+// Merge parallel processing results
+const merger = new MergeNode({
+    merger: ([summary, keyPoints]) => ({ summary, keyPoints }),
+});
+```
+
+## Pipeline Patterns
+
+### Simple Linear Pipeline
+
+Chain nodes together with the `pipe()` method:
+
+```typescript
+const pipeline = extractor.pipe(enricher).pipe(generator);
+const result = await pipeline.execute(input);
+```
+
+### Data Enrichment Pipeline
+
+Inject external data into your pipeline:
+
+```typescript
+// Create a pipeline with external data
+const keyPointExtractor = new ExtractionNode({
+    /*...*/
+});
+
+const siteMapEnricher = new DataEnricherNode({
+    enricher: (extractionResult, siteMap) => ({
+        extraction: extractionResult,
+        siteMap: siteMap,
+    }),
+    context: fetchSiteMap, // async function or static data
+});
+
+const articleFormatter = new LLMNode({
+    /*...*/
+});
+
+const pipeline = keyPointExtractor.pipe(siteMapEnricher).pipe(articleFormatter);
+```
+
+### Parallel Processing Pipeline
+
+Process data through multiple nodes and merge the results:
+
+```typescript
+// Define parallel nodes
+const summaryNode = new LLMNode({
+    /*...*/
+});
+const keyPointsNode = new LLMNode({
+    /*...*/
+});
+
+// Merge node to combine results
+const mergeNode = new MergeNode({
+    merger: ([summaryResult, keyPointsResult]) => ({
+        summary: summaryResult.summary,
+        keyPoints: keyPointsResult.keyPoints,
+    }),
+});
+
+// Helper to create a parallel pipeline
+const parallelPipeline = MergeNode.createPipeline(
+    [summaryNode, keyPointsNode],
+    mergeNode
+);
 
 // Use the pipeline
-const result = await articleToBlogPipeline.execute({ 
-  article: "Your article text here..." 
-});
+const mergedResult = await parallelPipeline({ text: "..." });
+```
+
+### Custom Execution Flow
+
+For maximum flexibility, use `execute()` directly:
+
+```typescript
+async function customWorkflow(text) {
+    // First analysis
+    const analysis = await analyzer.execute({ text });
+
+    // Custom business logic
+    if (analysis.sentiment === "negative") {
+        // Handle negative content specially
+    }
+
+    // External data integration
+    const userData = await fetchUserData();
+
+    // Final generation with combined context
+    return generator.execute({
+        topic: analysis.mainTopic,
+        userData,
+    });
+}
 ```
 
 ## API Reference
@@ -97,11 +230,12 @@ The core class that encapsulates an LLM interaction pattern.
 {
   promptTemplate: string | ((input: TInput) => string);
   llmConfig: {
+    provider: string;  // 'openai', 'anthropic', etc.
     model: string;
     temperature?: number;
     maxTokens?: number;
     systemPrompt?: string;
-    // Additional model-specific options
+    // Provider-specific options
   };
   parser: (rawResponse: string) => TOutput;
 }
@@ -109,16 +243,29 @@ The core class that encapsulates an LLM interaction pattern.
 
 #### Methods
 
-- `execute(input: TInput): Promise<TOutput>` - Execute the node with input data
-- `pipe<TNextOutput>(nextNode: IExecutable<TOutput, TNextOutput>): IExecutable<TInput, TNextOutput>` - Connect to another node
+-   `execute(input: TInput): Promise<TOutput>` - Execute the node with input data
+-   `pipe<TNextOutput>(nextNode: IExecutable<TOutput, TNextOutput>): IExecutable<TInput, TNextOutput>` - Connect to another node
+
+### Specialized Nodes
+
+-   `StructuredOutputNode<TInput, TOutput>`: Schema-validated outputs using Zod
+-   `ClassificationNode<TInput, TCategory>`: Classification with predefined categories
+-   `ExtractionNode<TInput, TOutput>`: Field extraction from unstructured text
+-   `ChainNode<TInput, TOutput>`: Multi-step reasoning chains
+-   `RAGNode<TInput, TOutput>`: Retrieval-augmented generation
+
+### Utility Nodes
+
+-   `DataEnricherNode<TInput, TOutput>`: Inject external data into pipelines
+-   `MergeNode<TInputs, TOutput>`: Combine outputs from multiple nodes
 
 ### Parsers
 
-- `jsonParser<T>()` - Parse JSON responses
-- `jsonFieldParser<T>(field: string)` - Extract a specific field from JSON
-- `regexParser<T>(patterns: Record<keyof T, RegExp>)` - Extract data using regex patterns
-- `labeledFieldsParser<T>()` - Parse responses with labeled fields
-- `textParser()` - Return raw text responses
+-   `jsonParser<T>()` - Parse JSON responses
+-   `jsonFieldParser<T>(field: string)` - Extract a specific field from JSON
+-   `regexParser<T>(patterns: Record<keyof T, RegExp>)` - Extract data using regex patterns
+-   `labeledFieldsParser<T>()` - Parse responses with labeled fields
+-   `textParser()` - Return raw text responses
 
 ## License
 

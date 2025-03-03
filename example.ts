@@ -1,7 +1,19 @@
-import { LLMNode, jsonParser, textParser } from './src';
+import {
+  IExecutable,
+  LLMNode,
+  jsonParser,
+  textParser,
+  LLMConfig,
+  getApiKeyEnvVar
+} from "./src";
 
-// Define a node that extracts key information from a text
-const informationExtractorNode = new LLMNode<{ text: string }, { summary: string, keywords: string[] }>({
+/**
+ * Example with OpenAI
+ */
+const openaiExtractorNode = new LLMNode<
+  { text: string },
+  { summary: string; keywords: string[] }
+>({
   promptTemplate: `
     Extract the key information from the following text:
     {{text}}
@@ -11,15 +23,22 @@ const informationExtractorNode = new LLMNode<{ text: string }, { summary: string
     - keywords: An array of important keywords from the text
   `,
   llmConfig: {
+    provider: "openai",
     model: "gpt-3.5-turbo",
     temperature: 0.3,
-    systemPrompt: "You are a helpful assistant that extracts key information from text."
+    systemPrompt:
+      "You are a helpful assistant that extracts key information from text.",
   },
-  parser: jsonParser<{ summary: string, keywords: string[] }>()
+  parser: jsonParser<{ summary: string; keywords: string[] }>(),
 });
 
-// Define a node that generates a blog post from extracted information
-const blogPostGeneratorNode = new LLMNode<{ summary: string, keywords: string[] }, string>({
+/**
+ * Example with Claude
+ */
+const claudeGeneratorNode = new LLMNode<
+  { summary: string; keywords: string[] },
+  string
+>({
   promptTemplate: `
     Write an engaging blog post based on this summary:
     {{summary}}
@@ -27,24 +46,91 @@ const blogPostGeneratorNode = new LLMNode<{ summary: string, keywords: string[] 
     The blog post should include these keywords: {{keywords.join(', ')}}
   `,
   llmConfig: {
-    model: "gpt-4",
+    provider: "anthropic",
+    model: "claude-3-haiku-20240307",
     temperature: 0.7,
-    systemPrompt: "You are a professional content writer who creates engaging blog posts."
+    systemPrompt:
+      "You are a professional content writer who creates engaging blog posts.",
   },
-  parser: textParser()
+  parser: textParser(),
 });
 
-// Create a pipeline by connecting the nodes
-const textToBlogPostPipeline = informationExtractorNode.pipe(blogPostGeneratorNode);
+/**
+ * Example with Mistral
+ */
+const mistralSummarizerNode = new LLMNode<
+  { text: string },
+  { mainPoints: string[] }
+>({
+  promptTemplate: `
+    Summarize the main points from the following text:
+    {{text}}
+    
+    Provide your answer as a JSON object with this field:
+    - mainPoints: An array of the key points from the text
+  `,
+  llmConfig: {
+    provider: "mistral",
+    model: "mistral-small",
+    temperature: 0.2,
+    systemPrompt: "You are an expert summarizer who extracts key points.",
+  },
+  parser: jsonParser<{ mainPoints: string[] }>(),
+});
 
-// Use the pipeline
-async function processBlogPost(text: string) {
-  const blogPost = await textToBlogPostPipeline.execute({ text });
-  console.log(blogPost);
-  return blogPost;
+/**
+ * Example pipeline with mixed providers
+ */
+const mixedProviderPipeline: IExecutable<{ text: string }, string> =
+  openaiExtractorNode.pipe(claudeGeneratorNode);
+
+/**
+ * Helper to check environment variables
+ */
+function checkEnvironment(config: LLMConfig): void {
+  const envVar = getApiKeyEnvVar(config.provider);
+  if (!process.env[envVar]) {
+    console.warn(`Warning: ${envVar} environment variable not set.`);
+    console.warn(`You need to set this for ${config.provider} to work properly.`);
+  }
 }
 
-// Example usage
+/**
+ * Run the pipeline with appropriate environment checks
+ */
+async function processBlogPost(text: string) {
+  // Check if API keys are set
+  checkEnvironment(openaiExtractorNode["llmConfig"]);
+  checkEnvironment(claudeGeneratorNode["llmConfig"]);
+  
+  // Execute the pipeline
+  try {
+    console.log("Processing with mixed provider pipeline (OpenAI → Claude)...");
+    const blogPost = await mixedProviderPipeline.execute({ text });
+    console.log("Result:", blogPost);
+    return blogPost;
+  } catch (error) {
+    console.error("Error processing blog post:", error);
+    throw error;
+  }
+}
+
+// Example with Mistral
+async function processSummaryWithMistral(text: string) {
+  checkEnvironment(mistralSummarizerNode["llmConfig"]);
+  
+  try {
+    console.log("Processing with Mistral...");
+    const summary = await mistralSummarizerNode.execute({ text });
+    console.log("Main points:", summary.mainPoints);
+    return summary;
+  } catch (error) {
+    console.error("Error generating summary with Mistral:", error);
+    throw error;
+  }
+}
+
+// Example text
 const text = `
   Artificial intelligence has seen tremendous growth in recent years. 
   Large language models like GPT-4 can now generate human-like text, 
@@ -55,3 +141,4 @@ const text = `
 
 // Uncomment to run:
 // processBlogPost(text).catch(console.error);
+// processSummaryWithMistral(text).catch(console.error);
