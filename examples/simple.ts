@@ -26,8 +26,9 @@ const openaiExtractorNode = new LLMNode<
         provider: "openai",
         model: "gpt-3.5-turbo",
         temperature: 0.3,
-        systemPrompt:
-            "You are a helpful assistant that extracts key information from text.",
+        providerOptions: {
+            systemPrompt: "You are a helpful assistant that extracts key information from text.",
+        },
     },
     parser: jsonParser<{ summary: string; keywords: string[] }>(),
 });
@@ -49,8 +50,9 @@ const claudeGeneratorNode = new LLMNode<
         provider: "anthropic",
         model: "claude-3-haiku-20240307",
         temperature: 0.7,
-        systemPrompt:
-            "You are a professional content writer who creates engaging blog posts.",
+        providerOptions: {
+            systemPrompt: "You are a professional content writer who creates engaging blog posts.",
+        },
     },
     parser: textParser(),
 });
@@ -73,7 +75,9 @@ const mistralSummarizerNode = new LLMNode<
         provider: "mistral",
         model: "mistral-small",
         temperature: 0.2,
-        systemPrompt: "You are an expert summarizer who extracts key points.",
+        providerOptions: {
+            systemPrompt: "You are an expert summarizer who extracts key points.",
+        },
     },
     parser: jsonParser<{ mainPoints: string[] }>(),
 });

@@ -1,14 +1,12 @@
 import { BaseChatModel } from "langchain/chat_models/base";
-import { SystemMessage, HumanMessage, AIMessage } from "langchain/schema";
 import {
     IExecutable,
     PromptTemplate,
     ResponseParser,
     NodeOptions,
     LLMConfig,
-    LLMProvider,
 } from "./types";
-import { createModel, supportsSystemMessages } from "./modelFactory";
+import { createModel, createMessages } from "./modelFactory";
 
 /**
  * LLMNode encapsulates an LLM interaction with prompt templating and response parsing
@@ -17,13 +15,11 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
     protected promptTemplate: PromptTemplate<TInput>;
     protected llm: BaseChatModel;
     protected parser: ResponseParser<TOutput>;
-    protected systemPrompt?: string;
     protected llmConfig: LLMConfig;
 
     constructor(options: NodeOptions<TInput, TOutput>) {
         this.promptTemplate = options.promptTemplate;
         this.parser = options.parser;
-        this.systemPrompt = options.llmConfig.systemPrompt;
         this.llmConfig = options.llmConfig;
 
         // Ensure provider is set for backward compatibility
@@ -34,6 +30,20 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
 
         // Initialize LLM from config using the factory
         this.llm = createModel(config);
+    }
+    
+    /**
+     * Gets the prompt template for this node
+     */
+    protected getPromptTemplate(): PromptTemplate<TInput> {
+        return this.promptTemplate;
+    }
+    
+    /**
+     * Gets the LLM configuration for this node
+     */
+    protected getLLMConfig(): LLMConfig {
+        return this.llmConfig;
     }
 
     /**
@@ -58,53 +68,18 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
         });
     }
 
-    /**
-     * Handle the system prompt based on provider capabilities
-     */
-    protected handleSystemPrompt(
-        provider: LLMProvider,
-        userPrompt: string
-    ): {
-        messages: Array<SystemMessage | HumanMessage | AIMessage>;
-        options?: Record<string, any>;
-    } {
-        const messages = [];
-        let options = {};
-
-        // Add system message based on provider support
-        if (this.systemPrompt) {
-            if (supportsSystemMessages(provider)) {
-                // Provider supports system messages directly
-                messages.push(new SystemMessage(this.systemPrompt));
-            } else {
-                // Provider doesn't support system messages, so we prepend it to the user message
-                const combinedPrompt = `${this.systemPrompt}\n\n${userPrompt}`;
-                options = { systemPrompt: this.systemPrompt };
-                userPrompt = combinedPrompt;
-            }
-        }
-
-        // Add user message
-        messages.push(new HumanMessage(userPrompt));
-
-        return { messages, options };
-    }
 
     /**
      * Execute this node with the provided input
      */
     async execute(input: TInput): Promise<TOutput> {
         const promptText = this.generatePrompt(input);
-        const provider = this.llmConfig.provider || "openai";
-
-        // Handle system prompts differently based on provider
-        const { messages, options } = this.handleSystemPrompt(
-            provider,
-            promptText
-        );
-
-        // Call the LLM with appropriate messages and options
-        const response = await this.llm.call(messages, options);
+        
+        // Create messages using the factory method
+        const messages = createMessages(promptText, this.llmConfig);
+        
+        // Call the LLM with appropriate messages
+        const response = await this.llm.call(messages);
 
         // Parse the response
         return this.parser(response.content as string);

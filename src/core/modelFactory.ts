@@ -3,6 +3,7 @@ import { ChatOpenAI } from "langchain/chat_models/openai";
 import { ChatAnthropic } from "langchain/chat_models/anthropic";
 import { ChatGoogleVertexAI } from "langchain/chat_models/googlevertexai";
 import { ChatOllama } from "langchain/chat_models/ollama";
+import { SystemMessage, HumanMessage, AIMessage, BaseMessage } from "langchain/schema";
 
 import {
     LLMConfig,
@@ -147,4 +148,32 @@ export function getApiKeyEnvVar(provider: LLMProvider): string {
  */
 export function supportsSystemMessages(provider: LLMProvider): boolean {
     return ["openai", "anthropic", "mistral"].includes(provider);
+}
+
+/**
+ * Creates an array of LangChain message objects based on the input text and LLM configuration
+ * @param text The user input text
+ * @param config The LLM configuration
+ * @returns An array of LangChain message objects
+ */
+export function createMessages(text: string, config: LLMConfig): BaseMessage[] {
+    const messages: BaseMessage[] = [];
+    const provider = config.provider;
+    const systemPrompt = config.providerOptions?.systemPrompt;
+
+    // Add system message if present and supported
+    if (systemPrompt) {
+        if (supportsSystemMessages(provider)) {
+            messages.push(new SystemMessage(systemPrompt));
+        } else {
+            // For providers that don't support system messages,
+            // prepend it to the user message
+            text = `${systemPrompt}\n\n${text}`;
+        }
+    }
+
+    // Add user message
+    messages.push(new HumanMessage(text));
+    
+    return messages;
 }

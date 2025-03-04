@@ -8,14 +8,7 @@ export interface IExecutable<TInput, TOutput> {
 /**
  * Supported LLM providers
  */
-export type LLMProvider =
-    | "openai"
-    | "anthropic"
-    | "mistral"
-    | "grok"
-    | "cohere"
-    | "ollama"
-    | string;
+export type LLMProvider = "openai" | "anthropic" | "grok" | "ollama" | string;
 
 /**
  * Base configuration options common to all LLM providers
@@ -25,7 +18,10 @@ export interface BaseLLMConfig {
     model: string;
     temperature?: number;
     maxTokens?: number;
-    systemPrompt?: string;
+    providerOptions?: {
+        systemPrompt?: string;
+        [key: string]: any;
+    };
 }
 
 /**

@@ -73,27 +73,5 @@ export class TextNode<TInput> extends LLMNode<TInput, string> {
         });
     }
 
-    /**
-     * Get the current prompt template
-     *
-     * @private
-     * @returns The current prompt template
-     */
-    private getPromptTemplate(): PromptTemplate<TInput> {
-        // This will need to be implemented by exposing the promptTemplate
-        // from the parent LLMNode class, or storing it in this class
-        return this["promptTemplate"];
-    }
-
-    /**
-     * Get the current LLM configuration
-     *
-     * @private
-     * @returns The current LLM configuration
-     */
-    private getLLMConfig(): LLMConfig {
-        // Access the llmConfig directly from the parent class property
-        // which is protected and accessible from this subclass
-        return this.llmConfig;
-    }
+    // Methods getPromptTemplate and getLLMConfig are inherited from parent class
 }
