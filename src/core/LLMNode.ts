@@ -1,4 +1,3 @@
-import { BaseChatModel } from "langchain/chat_models/base";
 import {
     IExecutable,
     PromptTemplate,
@@ -6,6 +5,7 @@ import {
     NodeOptions,
     LLMConfig,
 } from "./types";
+import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { createModel, createMessages } from "./modelFactory";
 
 /**
@@ -31,14 +31,14 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
         // Initialize LLM from config using the factory
         this.llm = createModel(config);
     }
-    
+
     /**
      * Gets the prompt template for this node
      */
     protected getPromptTemplate(): PromptTemplate<TInput> {
         return this.promptTemplate;
     }
-    
+
     /**
      * Gets the LLM configuration for this node
      */
@@ -68,16 +68,15 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
         });
     }
 
-
     /**
      * Execute this node with the provided input
      */
     async execute(input: TInput): Promise<TOutput> {
         const promptText = this.generatePrompt(input);
-        
+
         // Create messages using the factory method
         const messages = createMessages(promptText, this.llmConfig);
-        
+
         // Call the LLM with appropriate messages
         const response = await this.llm.call(messages);
 

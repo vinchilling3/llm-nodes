@@ -1,9 +1,9 @@
-import { BaseChatModel } from "langchain/chat_models/base";
-import { ChatOpenAI } from "langchain/chat_models/openai";
-import { ChatAnthropic } from "langchain/chat_models/anthropic";
-import { ChatGoogleVertexAI } from "langchain/chat_models/googlevertexai";
-import { ChatOllama } from "langchain/chat_models/ollama";
-import { SystemMessage, HumanMessage, BaseMessage } from "langchain/schema";
+import { BaseChatModel } from "@langchain/core/language_models/chat_models";
+import { ChatOpenAI } from "@langchain/openai";
+import { ChatAnthropic } from "@langchain/anthropic";
+import { ChatVertexAI } from "@langchain/google-vertexai";
+import { ChatOllama } from "@langchain/ollama";
+import { SystemMessage, HumanMessage, BaseMessage } from "@langchain/core/messages";
 import * as dotenv from 'dotenv';
 
 // Load environment variables from .env file
@@ -100,7 +100,7 @@ export function createModel(config: LLMConfig): BaseChatModel {
         case "grok": {
             // For Grok, we use the Vertex AI interface as it's a common approach
             const { apiKey, topP, ...rest } = config as GrokConfig;
-            return new ChatGoogleVertexAI({
+            return new ChatVertexAI({
                 temperature: temperature ?? DEFAULT_TEMPERATURE,
                 maxOutputTokens: maxTokens,
                 topP,

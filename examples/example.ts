@@ -1,28 +1,29 @@
 import { TextNode } from "../src/index";
 
 export default async function main() {
-    console.log("Running example...");
-
-    const storyGenerator = new TextNode<{
+    const textGenerator = new TextNode<{
+        format: string;
         topic: string;
         style: string;
         minWords: number;
         maxWords: number;
     }>({
         promptTemplate:
-            "Write a short story about {{topic}} in {{style}} style with {{minWords}} to {{maxWords}} words.",
+            "Write a {{format}} about {{topic}} in {{style}} style with {{minWords}} to {{maxWords}} words.",
         llmConfig: {
-            provider: "openai",
-            model: "gpt-4",
+            provider: "anthropic",
+            // model: "claude-3-7-sonnet-20250219",
+            model: "claude-3-5-sonnet-20241022",
         },
     });
 
     // Use it
-    const story = await storyGenerator.execute({
-        topic: "a robot learning to paint",
-        style: "magical realism",
-        minWords: 100,
-        maxWords: 200,
+    const text = await textGenerator.execute({
+        format: "sonnet",
+        topic: "ai",
+        style: "doom",
+        minWords: 10,
+        maxWords: 150,
     });
-    console.log(story);
+    console.log(text);
 }
