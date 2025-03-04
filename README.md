@@ -72,6 +72,31 @@ const summarizer = new LLMNode<{ text: string }, string>({
 });
 ```
 
+### TextNode
+
+A simplified node for text generation with the text parser built-in:
+
+```typescript
+const textGenerator = new TextNode({
+    promptTemplate: "Write a short story about {{topic}} in {{style}} style.",
+    llmConfig: {
+        provider: "openai",
+        model: "gpt-4",
+    },
+});
+
+// Use it
+const story = await textGenerator.execute({
+    topic: "a robot learning to paint",
+    style: "magical realism",
+});
+
+// Add instructions without creating a new node
+const detailedGenerator = textGenerator.withAdditionalPrompt(
+    "Include vivid sensory details and a surprising twist at the end."
+);
+```
+
 ### Specialized LLM Nodes
 
 The library includes several specialized node types for common tasks:
@@ -80,7 +105,7 @@ The library includes several specialized node types for common tasks:
 -   **ClassificationNode**: Classifies inputs into predefined categories
 -   **ExtractionNode**: Extracts structured fields from text
 -   **ChainNode**: Implements multi-step reasoning chains
--   **RAGNode**: Retrieval-augmented generation with document context
+-   **RAGNode** (Incomplete): Retrieval-augmented generation with document context
 
 ```typescript
 // Example: Classification node
@@ -252,7 +277,7 @@ The core class that encapsulates an LLM interaction pattern.
 -   `ClassificationNode<TInput, TCategory>`: Classification with predefined categories
 -   `ExtractionNode<TInput, TOutput>`: Field extraction from unstructured text
 -   `ChainNode<TInput, TOutput>`: Multi-step reasoning chains
--   `RAGNode<TInput, TOutput>`: Retrieval-augmented generation
+-   `RAGNode<TInput, TOutput>` (Incomplete): Retrieval-augmented generation
 
 ### Utility Nodes
 

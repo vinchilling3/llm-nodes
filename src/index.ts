@@ -7,7 +7,6 @@ export {
     PromptTemplate,
     ResponseParser,
 } from "./core/types";
-export { getApiKeyEnvVar } from "./core/modelFactory";
 
 // Parser exports
 export { jsonParser, jsonFieldParser } from "./parsers/json";
@@ -20,6 +19,7 @@ export {
 // Specialized nodes
 export {
     // LLM-based nodes
+    TextNode,
     StructuredOutputNode,
     ClassificationNode,
     ExtractionNode,

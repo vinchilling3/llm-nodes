@@ -98,7 +98,7 @@ export class ChainNode<TInput, TOutput> extends LLMNode<
             llmConfig: options.llmConfig,
             parser: (rawResponse: string) => ({} as ChainResult<TOutput>), // Will be implemented
         });
-        
+
         this.maxSteps = options.maxSteps ?? 5;
         this.allowEarlyStopping = options.allowEarlyStopping ?? true;
         this.reasoningStrategy = options.reasoningStrategy ?? "forward";

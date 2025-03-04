@@ -6,6 +6,7 @@
  */
 
 // LLM-based node types
+export { TextNode } from "./TextNode";
 export { StructuredOutputNode } from "./StructuredOutputNode";
 export {
     ClassificationNode,

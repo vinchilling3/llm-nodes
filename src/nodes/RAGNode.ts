@@ -106,6 +106,7 @@ export class RAGNode<TInput, TOutput> extends LLMNode<
         outputParser: (text: string) => TOutput;
         includeMetadata?: boolean;
     }) {
+        throw new Error("Not implemented");
         // Implementation will:
         // 1. Store retriever function and configuration
         // 2. Configure output parser
@@ -115,7 +116,7 @@ export class RAGNode<TInput, TOutput> extends LLMNode<
             llmConfig: options.llmConfig,
             parser: (rawResponse: string) => ({} as RAGResponse<TOutput>), // Will be implemented
         });
-        
+
         this.retriever = options.retriever;
         this.maxDocuments = options.maxDocuments ?? 3;
         this.outputParser = options.outputParser;

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { LLMNode } from "../core/LLMNode";
 import { LLMConfig, ResponseParser, PromptTemplate } from "../core/types";
+import { jsonParser } from "../parsers/json";
 
 /**
  * StructuredOutputNode
@@ -37,6 +38,12 @@ export class StructuredOutputNode<TInput, TOutput> extends LLMNode<
     private maxRetries: number;
 
     /**
+     * Template to use for invalid response retries
+     * @private
+     */
+    private invalidResponseTemplate?: string;
+
+    /**
      * Creates a new StructuredOutputNode
      *
      * @param options Configuration options
@@ -58,19 +65,40 @@ export class StructuredOutputNode<TInput, TOutput> extends LLMNode<
         maxRetries?: number;
         invalidResponseTemplate?: string;
     }) {
-        // Implementation will:
-        // 1. Store the schema
-        // 2. Create a custom parser that applies the schema
-        // 3. Set up the parent LLMNode with the parser
-        // 4. Configure retry behavior
+        // Store schema locally for parser creation
+        const schema = options.schema;
+        
+        // Create a custom parser that validates against the schema
+        const schemaParser: ResponseParser<TOutput> = (rawResponse: string) => {
+            try {
+                // First attempt to parse as JSON
+                const jsonResponse = jsonParser<any>()(rawResponse);
+
+                // Then validate against the schema
+                return schema.parse(jsonResponse);
+            } catch (error) {
+                if (error instanceof z.ZodError) {
+                    // Rethrow Zod validation errors for retry handling
+                    throw error;
+                } else {
+                    // Handle JSON parsing errors with proper error message
+                    const errorMessage = error instanceof Error ? error.message : String(error);
+                    throw new Error(`Failed to parse response as JSON: ${errorMessage}`);
+                }
+            }
+        };
+
+        // Initialize parent with the schema-validating parser
         super({
             promptTemplate: options.promptTemplate,
             llmConfig: options.llmConfig,
-            parser: {} as ResponseParser<TOutput>, // Will be implemented
+            parser: schemaParser,
         });
-        
+
+        // Store configuration
         this.schema = options.schema;
         this.maxRetries = options.maxRetries ?? 2;
+        this.invalidResponseTemplate = options.invalidResponseTemplate;
     }
 
     /**
@@ -86,12 +114,59 @@ export class StructuredOutputNode<TInput, TOutput> extends LLMNode<
      * - On final failure, throw a detailed error with validation issues
      */
     async execute(input: TInput): Promise<TOutput> {
-        // Will implement:
-        // 1. Attempt to execute with parent method
-        // 2. Catch validation errors
-        // 3. Retry with more specific instructions if needed
-        // 4. Format error messages to guide the LLM
-        return {} as TOutput; // Placeholder
+        let attemptCount = 0;
+        let lastError: z.ZodError | Error | null = null;
+
+        // Try initial execution plus retries
+        while (attemptCount <= this.maxRetries) {
+            try {
+                // If this is the first attempt, use the original prompt
+                if (attemptCount === 0) {
+                    return await super.execute(input);
+                }
+                // For retry attempts, use an enhanced prompt with error feedback
+                else if (lastError instanceof z.ZodError) {
+                    // Override the prompt template temporarily for this call
+                    const originalTemplate = this.promptTemplate;
+                    this.promptTemplate = () =>
+                        this.generateRetryPrompt(
+                            input,
+                            lastError as z.ZodError,
+                            attemptCount
+                        );
+
+                    try {
+                        return await super.execute(input);
+                    } finally {
+                        // Restore the original prompt template
+                        this.promptTemplate = originalTemplate;
+                    }
+                } else {
+                    // For other types of errors, just retry the original execution
+                    return await super.execute(input);
+                }
+            } catch (error) {
+                // Safely cast the error
+                lastError = error instanceof Error ? error : new Error(String(error));
+                attemptCount++;
+
+                // If we've exhausted our retries, break out of the loop
+                if (attemptCount > this.maxRetries) {
+                    break;
+                }
+            }
+        }
+
+        // If we get here, all attempts failed
+        if (lastError instanceof z.ZodError) {
+            throw new Error(
+                `Failed to generate valid output after ${attemptCount} attempts. Validation errors: ${JSON.stringify(
+                    lastError.format()
+                )}`
+            );
+        } else {
+            throw lastError || new Error("Failed to execute node");
+        }
     }
 
     /**
@@ -112,11 +187,121 @@ export class StructuredOutputNode<TInput, TOutput> extends LLMNode<
         validationError: z.ZodError,
         attemptCount: number
     ): string {
-        // Will implement:
-        // 1. Extract error details from Zod error
-        // 2. Format a new prompt with the errors highlighted
-        // 3. Include schema expectations
-        // 4. Make instructions progressively more explicit with each retry
-        return ""; // Placeholder
+        // Generate the original prompt to use as a base
+        let originalPrompt = "";
+        if (typeof this.promptTemplate === "function") {
+            originalPrompt = this.promptTemplate(input);
+        } else {
+            originalPrompt = this.promptTemplate.replace(
+                /\{\{([^}]+)\}\}/g,
+                (_, key) => {
+                    try {
+                        const evalFn = new Function("input", `return ${key}`);
+                        return String(evalFn(input) ?? "");
+                    } catch (e) {
+                        return String((input as any)[key] ?? "");
+                    }
+                }
+            );
+        }
+
+        // Format error details
+        const formattedErrors = Object.entries(validationError.format())
+            .filter(([key]) => key !== "_errors") // Skip the top-level _errors
+            .map(([path, error]) => {
+                if (typeof error === "object" && error && "error" in error) {
+                    const errorObj = error as any;
+                    const errorMessages = errorObj.errors || errorObj.error || [];
+                    return `- '${path}': ${Array.isArray(errorMessages) ? errorMessages.join(", ") : String(errorMessages)}`;
+                }
+                return "";
+            })
+            .filter(Boolean)
+            .join("\n");
+
+        // Generate schema description
+        const schemaDescription = this.describeSchema(this.schema);
+
+        // Use custom template if provided, otherwise use default retry template
+        if (this.invalidResponseTemplate) {
+            return this.invalidResponseTemplate
+                .replace("{{original_prompt}}", originalPrompt)
+                .replace("{{errors}}", formattedErrors)
+                .replace("{{schema}}", schemaDescription)
+                .replace("{{attempt}}", attemptCount.toString());
+        }
+
+        // Default retry template with progressively more explicit instructions
+        let retryPrompt = `
+I need you to provide a response in a specific JSON format, but your previous response had some issues:
+
+${formattedErrors}
+
+Here's the expected structure:
+${schemaDescription}
+
+${originalPrompt}
+
+IMPORTANT: Your response MUST be valid JSON that matches the schema exactly. Do not include any explanation, markdown code blocks, or additional text outside of the JSON object.
+`;
+
+        // Add more guidance for later retry attempts
+        if (attemptCount > 1) {
+            retryPrompt += `\nThis is retry attempt ${attemptCount}. Please follow these strict guidelines:
+1. Provide ONLY a JSON object, with no surrounding text, markdown, or explanation
+2. Make sure all required fields are present and have the correct types
+3. Check that all string formats (dates, emails, etc.) match the expected patterns
+4. Double-check array fields have the correct item types and lengths
+`;
+        }
+
+        return retryPrompt;
+    }
+
+    /**
+     * Generate a human-readable description of the Zod schema
+     * @private
+     */
+    private describeSchema(schema: z.ZodType<any>): string {
+        // Simplified schema description - in a real implementation,
+        // this would recursively describe the schema structure
+        try {
+            // Attempt to create a simplified schema description
+            // Since zod's describe() method might not be available in all versions,
+            // we'll create a simplified description
+            
+            // Generate a sample schema description based on the schema type
+            let description: any;
+            
+            try {
+                // Try to use the schema's describe method if available
+                if (typeof schema.describe === 'function') {
+                    // The describe method might require arguments in some versions
+                    try {
+                        // First try with no arguments (newer versions)
+                        description = (schema.describe as any)();
+                    } catch (descError) {
+                        // If that fails, try with an empty object argument (older versions)
+                        description = (schema.describe as any)({});
+                    }
+                }
+            } catch (e) {
+                // If schema.describe() fails, create a basic description
+                description = { type: "object" };
+            }
+            
+            // Ensure the schema description is properly formatted
+            const formattedDescription = JSON.stringify(description || { type: "object" }, null, 2);
+            
+            if (formattedDescription === '{}' || !formattedDescription) {
+                // If the schema description is empty, provide a generic fallback
+                return "JSON object matching the required schema";
+            }
+            
+            return formattedDescription;
+        } catch (e) {
+            // Fallback for complex schemas or errors
+            return "JSON object matching the required schema";
+        }
     }
 }

@@ -1,5 +1,6 @@
 import { LLMNode } from "../core/LLMNode";
 import { LLMConfig, PromptTemplate } from "../core/types";
+import { jsonParser } from "../parsers/json";
 
 /**
  * ClassificationResult type representing the output of a classification operation
@@ -72,20 +73,59 @@ export class ClassificationNode<
         includeExplanation?: boolean;
         defaultPrompt?: boolean;
     }) {
-        // Implementation will:
-        // 1. Store categories for validation
-        // 2. Create a specialized prompt that includes category information
-        // 3. Create a parser that validates against the categories
-        // 4. Set recommended LLM parameters for classification (if not overridden)
-        super({
-            promptTemplate: {} as PromptTemplate<TInput>, // Will be implemented
-            llmConfig: options.llmConfig,
-            parser: (rawResponse: string) =>
-                ({} as ClassificationResult<TCategory>), // Will be implemented
-        });
+        // Store categories for use after super() call
+        const categories = [...options.categories];
+        const includeExplanation = options.includeExplanation ?? false;
         
-        this.categories = options.categories;
-        this.includeExplanation = options.includeExplanation ?? false;
+        // Validate categories are unique
+        const uniqueCategories = new Set(categories);
+        if (uniqueCategories.size !== categories.length) {
+            throw new Error("Classification categories must be unique");
+        }
+
+        // Set default temperature for classification if not provided
+        const llmConfig = {
+            ...options.llmConfig,
+            temperature: options.llmConfig.temperature ?? 0.2, // Lower temperature for more deterministic results
+        };
+        
+        // We need to initialize with a temporary prompt template
+        // that will be replaced after super() call
+        const temporaryPrompt = options.promptTemplate || "{{input}}";
+
+        super({
+            promptTemplate: temporaryPrompt,
+            llmConfig,
+            parser: (rawResponse: string) => {
+                try {
+                    const parser =
+                        jsonParser<ClassificationResult<TCategory>>();
+                    const result = parser(rawResponse);
+                    return this.validateClassification(result);
+                } catch (error) {
+                    // If JSON parsing fails, try to extract the category directly
+                    // This is a fallback for when the LLM doesn't output proper JSON
+                    const result =
+                        this.extractClassificationFromText(rawResponse);
+                    return this.validateClassification(result);
+                }
+            },
+        });
+
+        // Now we can safely use 'this'
+        this.categories = categories;
+        this.includeExplanation = includeExplanation;
+        
+        // After super() is called, we can update the prompt template correctly
+        const useDefaultPrompt = options.defaultPrompt ?? true;
+        
+        // Create the proper prompt template
+        if (useDefaultPrompt || !options.promptTemplate) {
+            const defaultPrompt = this.createDefaultPrompt();
+            this.promptTemplate = this.enhancePromptWithCategories(defaultPrompt);
+        } else {
+            this.promptTemplate = this.enhancePromptWithCategories(options.promptTemplate);
+        }
     }
 
     /**
@@ -103,11 +143,63 @@ export class ClassificationNode<
     private enhancePromptWithCategories(
         basePrompt: PromptTemplate<TInput>
     ): PromptTemplate<TInput> {
-        // Will implement:
-        // 1. Format categories as a list
-        // 2. Add classification-specific instructions
-        // 3. Include formatting requirements
-        return {} as PromptTemplate<TInput>; // Placeholder
+        if (typeof basePrompt === "function") {
+            // If the prompt is a function, wrap it to enhance with category information
+            return (input: TInput) => {
+                const basePromptText = basePrompt(input);
+                return this.appendClassificationInstructions(basePromptText);
+            };
+        } else {
+            // If it's a string template, append instructions at the end
+            return `${basePrompt}\n\n${this.getClassificationInstructions()}`;
+        }
+    }
+
+    /**
+     * Append classification-specific instructions to a prompt
+     * @param prompt The base prompt text
+     * @returns Enhanced prompt with classification instructions
+     */
+    private appendClassificationInstructions(prompt: string): string {
+        return `${prompt}\n\n${this.getClassificationInstructions()}`;
+    }
+
+    /**
+     * Generate the standard classification instructions
+     * @returns Formatted classification instructions
+     */
+    private getClassificationInstructions(): string {
+        const categoriesList = this.categories
+            .map((cat) => `- ${cat}`)
+            .join("\n");
+
+        let instructions = `
+CLASSIFICATION TASK:
+Analyze the above content and classify it into exactly ONE of the following categories:
+${categoriesList}
+
+Your response MUST be in JSON format with the following structure:
+{
+  "category": "the_selected_category",
+  "confidence": 0.95 // A number between 0 and 1 indicating your confidence level
+`;
+
+        if (this.includeExplanation) {
+            instructions += `,
+  "explanation": "A brief explanation of why you selected this category"
+`;
+        }
+
+        instructions += `
+}
+
+Make sure to:
+1. Choose ONLY ONE category from the list provided
+2. Provide a confidence score between 0 and 1
+3. Return valid JSON that can be parsed directly
+`;
+
+        return instructions;
     }
 
     /**
@@ -121,10 +213,62 @@ export class ClassificationNode<
      * - Emphasize need for selecting from provided categories only
      */
     private createDefaultPrompt(): PromptTemplate<TInput> {
-        // Will implement:
-        // 1. Create a template string with input placeholders
-        // 2. Add classification-specific instructions
-        return {} as PromptTemplate<TInput>; // Placeholder
+        return `Content to classify:
+{{input}}
+
+`;
+    }
+
+    /**
+     * Try to extract classification from text when JSON parsing fails
+     * @param text Raw LLM response
+     * @returns Best-effort parsed classification result
+     */
+    private extractClassificationFromText(
+        text: string
+    ): ClassificationResult<TCategory> {
+        // Default values
+        let category: TCategory | null = null;
+        let confidence = 0.5;
+        let explanation: string | undefined = undefined;
+
+        // Try to find a category mentioned in the text
+        for (const possibleCategory of this.categories) {
+            if (text.toLowerCase().includes(possibleCategory.toLowerCase())) {
+                category = possibleCategory;
+                break;
+            }
+        }
+
+        // Look for confidence values (e.g., "confidence: 0.8")
+        const confidenceMatch = text.match(
+            /confidence[:\s]+([0-9]*\.?[0-9]+)/i
+        );
+        if (confidenceMatch && confidenceMatch[1]) {
+            confidence = parseFloat(confidenceMatch[1]);
+        }
+
+        // Look for explanation
+        if (this.includeExplanation) {
+            const explanationMatch = text.match(
+                /explanation[:\s]+"?([^"]+)"?/i
+            );
+            if (explanationMatch && explanationMatch[1]) {
+                explanation = explanationMatch[1].trim();
+            }
+        }
+
+        if (!category) {
+            throw new Error(
+                `Could not extract a valid category from response: ${text}`
+            );
+        }
+
+        return {
+            category,
+            confidence,
+            explanation,
+        };
     }
 
     /**
@@ -143,10 +287,56 @@ export class ClassificationNode<
     private validateClassification(
         result: ClassificationResult<TCategory>
     ): ClassificationResult<TCategory> {
-        // Will implement:
-        // 1. Check category against allowed list
-        // 2. Validate confidence range
-        // 3. Normalize data if needed
-        return result; // Placeholder
+        // Normalize the category with case-insensitive matching
+        const normalizedCategory = this.normalizeCategory(result.category);
+
+        // Validate category exists in our list
+        if (!normalizedCategory) {
+            throw new Error(
+                `Invalid category "${
+                    result.category
+                }". Must be one of: ${this.categories.join(", ")}`
+            );
+        }
+
+        // Validate confidence is between 0 and 1
+        if (
+            result.confidence < 0 ||
+            result.confidence > 1 ||
+            isNaN(result.confidence)
+        ) {
+            throw new Error(
+                `Invalid confidence value: ${result.confidence}. Must be between 0 and 1.`
+            );
+        }
+
+        // Return validated and normalized result
+        return {
+            category: normalizedCategory,
+            confidence: result.confidence,
+            explanation: result.explanation,
+        };
+    }
+
+    /**
+     * Normalize category input against the allowed categories
+     * @param category Category string to normalize
+     * @returns Normalized category from the allowed list or null if not found
+     */
+    private normalizeCategory(category: string): TCategory | null {
+        // Check for exact match first
+        if (this.categories.includes(category as TCategory)) {
+            return category as TCategory;
+        }
+
+        // Then try case-insensitive matching
+        const lowerCategory = category.toLowerCase();
+        for (const validCategory of this.categories) {
+            if (validCategory.toLowerCase() === lowerCategory) {
+                return validCategory;
+            }
+        }
+
+        return null;
     }
 }
