@@ -8,6 +8,18 @@ A lightweight, composable TypeScript library for working with LLMs that extends 
 npm install llm-nodes
 ```
 
+## Environment Variables
+
+This library uses dotenv to load API keys from your environment. Create a `.env` file in the root of your project with your API keys:
+
+```
+# API Keys for different providers
+OPENAI_API_KEY=your_openai_api_key_here
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
+GROK_API_KEY=your_grok_api_key_here
+# Add others as needed
+```
+
 ## Features
 
 -   **Simplified Node Pattern**: Combines prompt templates, LLM configuration, and response parsing into a cohesive unit

@@ -3,7 +3,11 @@ import { ChatOpenAI } from "langchain/chat_models/openai";
 import { ChatAnthropic } from "langchain/chat_models/anthropic";
 import { ChatGoogleVertexAI } from "langchain/chat_models/googlevertexai";
 import { ChatOllama } from "langchain/chat_models/ollama";
-import { SystemMessage, HumanMessage, AIMessage, BaseMessage } from "langchain/schema";
+import { SystemMessage, HumanMessage, BaseMessage } from "langchain/schema";
+import * as dotenv from 'dotenv';
+
+// Load environment variables from .env file
+dotenv.config();
 
 import {
     LLMConfig,
@@ -13,6 +17,8 @@ import {
     GrokConfig,
     OllamaConfig,
 } from "./types";
+
+export const DEFAULT_TEMPERATURE = 0.7;
 
 /**
  * Type guard for OpenAI config
@@ -66,7 +72,7 @@ export function createModel(config: LLMConfig): BaseChatModel {
             } = config as OpenAIConfig;
             return new ChatOpenAI({
                 modelName: model,
-                temperature: temperature ?? 0.7,
+                temperature: temperature ?? DEFAULT_TEMPERATURE,
                 maxTokens,
                 openAIApiKey: apiKey,
                 frequencyPenalty,
@@ -81,7 +87,7 @@ export function createModel(config: LLMConfig): BaseChatModel {
                 config as AnthropicConfig;
             return new ChatAnthropic({
                 modelName: model,
-                temperature: temperature ?? 0.7,
+                temperature: temperature ?? DEFAULT_TEMPERATURE,
                 maxTokens,
                 anthropicApiKey: apiKey,
                 topK,
@@ -95,7 +101,7 @@ export function createModel(config: LLMConfig): BaseChatModel {
             // For Grok, we use the Vertex AI interface as it's a common approach
             const { apiKey, topP, ...rest } = config as GrokConfig;
             return new ChatGoogleVertexAI({
-                temperature: temperature ?? 0.7,
+                temperature: temperature ?? DEFAULT_TEMPERATURE,
                 maxOutputTokens: maxTokens,
                 topP,
                 ...rest,
@@ -106,7 +112,7 @@ export function createModel(config: LLMConfig): BaseChatModel {
             const { baseUrl, format, keepAlive, numKeep, ...rest } =
                 config as OllamaConfig;
             return new ChatOllama({
-                temperature: temperature ?? 0.7,
+                temperature: temperature ?? DEFAULT_TEMPERATURE,
                 baseUrl,
                 format,
                 numKeep,
@@ -174,6 +180,6 @@ export function createMessages(text: string, config: LLMConfig): BaseMessage[] {
 
     // Add user message
     messages.push(new HumanMessage(text));
-    
+
     return messages;
 }

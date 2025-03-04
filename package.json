@@ -1,6 +1,6 @@
 {
     "name": "llm-nodes",
-    "version": "0.1.5",
+    "version": "0.1.6",
     "description": "Lightweight, composable LLM nodes for TypeScript",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
@@ -36,6 +36,7 @@
     "author": "Ty Van Roy <tyvanroy@gmail.com>",
     "license": "MIT",
     "dependencies": {
+        "dotenv": "^16.4.7",
         "google-auth-library": "^8.9.0",
         "langchain": "^0.0.200",
         "ts-node": "^10.9.2",
