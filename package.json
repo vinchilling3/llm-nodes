@@ -1,6 +1,6 @@
 {
     "name": "llm-nodes",
-    "version": "0.1.4",
+    "version": "0.1.5",
     "description": "Lightweight, composable LLM nodes for TypeScript",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
@@ -12,7 +12,8 @@
     "scripts": {
         "build": "tsc",
         "test": "jest",
-        "prepare": "npm run build"
+        "prepare": "npm run build",
+        "example": "ts-node ./examples/run_example.ts"
     },
     "keywords": [
         "llm",
@@ -35,14 +36,16 @@
     "author": "Ty Van Roy <tyvanroy@gmail.com>",
     "license": "MIT",
     "dependencies": {
+        "google-auth-library": "^8.9.0",
         "langchain": "^0.0.200",
+        "ts-node": "^10.9.2",
         "zod": "^3.22.4"
     },
     "devDependencies": {
-        "typescript": "^5.3.3",
+        "@types/node": "^20.10.5",
         "jest": "^29.7.0",
         "ts-jest": "^29.1.1",
-        "@types/node": "^20.10.5"
+        "typescript": "^5.3.3"
     },
     "exports": {
         ".": {
