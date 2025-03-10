@@ -26,6 +26,7 @@ export type ClassificationResult<TCategory extends string = string> = {
  * - Optional explanation for classification decisions
  * - Type-safe category definition using TypeScript literals
  * - Built-in prompt engineering for classification tasks
+ * - Configurable input field for flexibility
  *
  * Example use cases:
  * - Sentiment analysis (positive/negative/neutral)
@@ -51,6 +52,12 @@ export class ClassificationNode<
     private includeExplanation: boolean;
 
     /**
+     * The name of the input field to use in the prompt template
+     * @private
+     */
+    private inputField: string;
+
+    /**
      * Creates a new ClassificationNode
      *
      * @param options Configuration options
@@ -59,6 +66,7 @@ export class ClassificationNode<
      * @param options.llmConfig LLM configuration options
      * @param options.includeExplanation Whether to request explanation for classification (default: false)
      * @param options.defaultPrompt Whether to use the built-in classification prompt (default: true)
+     * @param options.inputField The name of the field in the input object to use for classification (default: "input")
      *
      * Implementation notes:
      * - The constructor should validate that categories are unique
@@ -72,11 +80,13 @@ export class ClassificationNode<
         llmConfig: LLMConfig;
         includeExplanation?: boolean;
         defaultPrompt?: boolean;
+        inputField?: string;
     }) {
         // Store categories for use after super() call
         const categories = [...options.categories];
         const includeExplanation = options.includeExplanation ?? false;
-        
+        const inputField = options.inputField ?? "input"; // Default to "input" if not specified
+
         // Validate categories are unique
         const uniqueCategories = new Set(categories);
         if (uniqueCategories.size !== categories.length) {
@@ -88,10 +98,10 @@ export class ClassificationNode<
             ...options.llmConfig,
             temperature: options.llmConfig.temperature ?? 0.2, // Lower temperature for more deterministic results
         };
-        
+
         // We need to initialize with a temporary prompt template
         // that will be replaced after super() call
-        const temporaryPrompt = options.promptTemplate || "{{input}}";
+        const temporaryPrompt = options.promptTemplate || `{{${inputField}}}`;
 
         super({
             promptTemplate: temporaryPrompt,
@@ -115,16 +125,20 @@ export class ClassificationNode<
         // Now we can safely use 'this'
         this.categories = categories;
         this.includeExplanation = includeExplanation;
-        
+        this.inputField = inputField; // Store the input field name
+
         // After super() is called, we can update the prompt template correctly
         const useDefaultPrompt = options.defaultPrompt ?? true;
-        
+
         // Create the proper prompt template
         if (useDefaultPrompt || !options.promptTemplate) {
             const defaultPrompt = this.createDefaultPrompt();
-            this.promptTemplate = this.enhancePromptWithCategories(defaultPrompt);
+            this.promptTemplate =
+                this.enhancePromptWithCategories(defaultPrompt);
         } else {
-            this.promptTemplate = this.enhancePromptWithCategories(options.promptTemplate);
+            this.promptTemplate = this.enhancePromptWithCategories(
+                options.promptTemplate
+            );
         }
     }
 
@@ -214,7 +228,7 @@ Make sure to:
      */
     private createDefaultPrompt(): PromptTemplate<TInput> {
         return `Content to classify:
-{{input}}
+{{${this.inputField}}}
 
 `;
     }

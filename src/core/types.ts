@@ -1,4 +1,22 @@
 /**
+ * Token usage information from an LLM call
+ */
+export type TokenUsage = {
+  inputTokens: number;
+  outputTokens: number;
+};
+
+/**
+ * Record of a single LLM call usage
+ */
+export type UsageRecord = {
+  timestamp: Date;
+  provider: string;
+  model: string;
+  tokenUsage: TokenUsage;
+};
+
+/**
  * Interface for any component that can execute with input and produce output
  */
 export interface IExecutable<TInput, TOutput> {

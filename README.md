@@ -304,6 +304,51 @@ The core class that encapsulates an LLM interaction pattern.
 -   `labeledFieldsParser<T>()` - Parse responses with labeled fields
 -   `textParser()` - Return raw text responses
 
+## Token Usage Tracking
+
+The library provides built-in token usage tracking:
+
+```typescript
+// Create an LLM node
+const textGenerator = new TextNode({
+    promptTemplate: "Write about {{topic}}",
+    llmConfig: {
+        provider: "anthropic",
+        model: "claude-3-sonnet-20240229",
+    },
+});
+
+// Use the node
+const result = await textGenerator.execute({ topic: "AI" });
+
+// Get token usage statistics
+const usage = textGenerator.getTotalTokenUsage();
+console.log(`Input Tokens: ${usage.inputTokens}`);
+console.log(`Output Tokens: ${usage.outputTokens}`);
+console.log(`Total Tokens: ${usage.totalTokens}`);
+
+// Get detailed usage records
+const records = textGenerator.getUsageRecords();
+```
+
+Token tracking also works across pipelines:
+
+```typescript
+// Create a pipeline
+const pipeline = nodeA.pipe(nodeB).pipe(nodeC);
+
+// Execute
+const result = await pipeline.execute(input);
+
+// Get token usage for the entire pipeline
+const usage = pipeline.getTotalTokenUsage();
+```
+
+## TODOs
+
+- Support for extended thinking modes
+- RAGNode implementation
+
 ## License
 
 MIT

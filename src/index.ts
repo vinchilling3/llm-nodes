@@ -6,6 +6,9 @@ export {
     NodeOptions,
     PromptTemplate,
     ResponseParser,
+    // Token tracking types
+    TokenUsage,
+    UsageRecord,
 } from "./core/types";
 export { getApiKeyEnvVar } from "./core/modelFactory";
 

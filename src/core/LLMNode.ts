@@ -4,6 +4,8 @@ import {
     ResponseParser,
     NodeOptions,
     LLMConfig,
+    TokenUsage,
+    UsageRecord
 } from "./types";
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { createModel, createMessages } from "./modelFactory";
@@ -16,6 +18,7 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
     protected llm: BaseChatModel;
     protected parser: ResponseParser<TOutput>;
     protected llmConfig: LLMConfig;
+    protected usageRecords: UsageRecord[] = [];
 
     constructor(options: NodeOptions<TInput, TOutput>) {
         this.promptTemplate = options.promptTemplate;
@@ -80,8 +83,64 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
         // Call the LLM with appropriate messages
         const response = await this.llm.call(messages);
 
+        // Record token usage if available in the response
+        // LangChain models add usage data in different ways depending on provider
+        // @ts-ignore - Access usage info that may exist on the underlying response object
+        const usage = response.usage || (response as any)._llmResult?.usage || null;
+        if (usage) {
+            this.recordUsage({
+                inputTokens: usage.promptTokens || usage.promptTokenCount || 0,
+                outputTokens: usage.completionTokens || usage.completionTokenCount || 0
+            });
+        }
+
         // Parse the response
         return this.parser(response.content as string);
+    }
+    
+    /**
+     * Record token usage from a model response
+     */
+    protected recordUsage(tokenUsage: TokenUsage): void {
+        const record: UsageRecord = {
+            timestamp: new Date(),
+            provider: this.llmConfig.provider,
+            model: this.llmConfig.model,
+            tokenUsage: tokenUsage
+        };
+        
+        this.usageRecords.push(record);
+    }
+    
+    /**
+     * Get all usage records
+     */
+    getUsageRecords(): UsageRecord[] {
+        return [...this.usageRecords];
+    }
+    
+    /**
+     * Get total token usage
+     */
+    getTotalTokenUsage(): TokenUsage & { totalTokens: number } {
+        const usage = this.usageRecords.reduce((total, record) => {
+            return {
+                inputTokens: total.inputTokens + record.tokenUsage.inputTokens,
+                outputTokens: total.outputTokens + record.tokenUsage.outputTokens
+            };
+        }, { inputTokens: 0, outputTokens: 0 });
+        
+        return {
+            ...usage,
+            totalTokens: usage.inputTokens + usage.outputTokens
+        };
+    }
+    
+    /**
+     * Clear usage records
+     */
+    clearUsageRecords(): void {
+        this.usageRecords = [];
     }
 
     /**
@@ -89,12 +148,38 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
      */
     pipe<TNextOutput>(
         nextNode: IExecutable<TOutput, TNextOutput>
-    ): IExecutable<TInput, TNextOutput> {
+    ): IExecutable<TInput, TNextOutput> & {
+        getUsageRecords(): UsageRecord[];
+        getTotalTokenUsage(): TokenUsage & { totalTokens: number };
+    } {
+        const self = this;
+        
+        // Create pipeline with token usage tracking
         return {
             execute: async (input: TInput): Promise<TNextOutput> => {
-                const intermediateResult = await this.execute(input);
+                const intermediateResult = await self.execute(input);
                 return nextNode.execute(intermediateResult);
             },
+            
+            getUsageRecords(): UsageRecord[] {
+                const records = [...self.getUsageRecords()];
+                if ('getUsageRecords' in nextNode) {
+                    records.push(...(nextNode as any).getUsageRecords());
+                }
+                return records;
+            },
+            
+            getTotalTokenUsage(): TokenUsage & { totalTokens: number } {
+                const usage = self.getTotalTokenUsage();
+                if ('getTotalTokenUsage' in nextNode) {
+                    const nextUsage = (nextNode as any).getTotalTokenUsage();
+                    usage.inputTokens += nextUsage.inputTokens;
+                    usage.outputTokens += nextUsage.outputTokens;
+                    // Recompute total tokens
+                    usage.totalTokens = usage.inputTokens + usage.outputTokens;
+                }
+                return usage;
+            }
         };
     }
 }
