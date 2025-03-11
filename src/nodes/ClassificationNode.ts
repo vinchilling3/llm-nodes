@@ -26,7 +26,6 @@ export type ClassificationResult<TCategory extends string = string> = {
  * - Optional explanation for classification decisions
  * - Type-safe category definition using TypeScript literals
  * - Built-in prompt engineering for classification tasks
- * - Configurable input field for flexibility
  *
  * Example use cases:
  * - Sentiment analysis (positive/negative/neutral)
@@ -52,12 +51,6 @@ export class ClassificationNode<
     private includeExplanation: boolean;
 
     /**
-     * The name of the input field to use in the prompt template
-     * @private
-     */
-    private inputField: string;
-
-    /**
      * Creates a new ClassificationNode
      *
      * @param options Configuration options
@@ -66,7 +59,6 @@ export class ClassificationNode<
      * @param options.llmConfig LLM configuration options
      * @param options.includeExplanation Whether to request explanation for classification (default: false)
      * @param options.defaultPrompt Whether to use the built-in classification prompt (default: true)
-     * @param options.inputField The name of the field in the input object to use for classification (default: "input")
      *
      * Implementation notes:
      * - The constructor should validate that categories are unique
@@ -80,12 +72,10 @@ export class ClassificationNode<
         llmConfig: LLMConfig;
         includeExplanation?: boolean;
         defaultPrompt?: boolean;
-        inputField?: string;
     }) {
         // Store categories for use after super() call
         const categories = [...options.categories];
         const includeExplanation = options.includeExplanation ?? false;
-        const inputField = options.inputField ?? "input"; // Default to "input" if not specified
 
         // Validate categories are unique
         const uniqueCategories = new Set(categories);
@@ -101,7 +91,7 @@ export class ClassificationNode<
 
         // We need to initialize with a temporary prompt template
         // that will be replaced after super() call
-        const temporaryPrompt = options.promptTemplate || `{{${inputField}}}`;
+        const temporaryPrompt = options.promptTemplate || "{{input}}";
 
         super({
             promptTemplate: temporaryPrompt,
@@ -125,7 +115,6 @@ export class ClassificationNode<
         // Now we can safely use 'this'
         this.categories = categories;
         this.includeExplanation = includeExplanation;
-        this.inputField = inputField; // Store the input field name
 
         // After super() is called, we can update the prompt template correctly
         const useDefaultPrompt = options.defaultPrompt ?? true;
@@ -140,6 +129,49 @@ export class ClassificationNode<
                 options.promptTemplate
             );
         }
+    }
+
+    /**
+     * Override the execute method to automatically handle different input structures
+     * This ensures users can pass any property as the content to classify
+     */
+    async execute(input: TInput): Promise<ClassificationResult<TCategory>> {
+        // Check if input has a property named "input"
+        if ((input as any).input !== undefined) {
+            // Use as is
+            return super.execute(input);
+        }
+
+        // If no "input" property exists, find the first available property
+        // or use the entire input as the content to classify
+
+        // First attempt: If input is a string, use it directly
+        if (typeof input === "string") {
+            return super.execute({ input: input } as unknown as TInput);
+        }
+
+        // Second attempt: If input is an object, find the first property
+        if (typeof input === "object" && input !== null) {
+            // Get the first property that isn't a function or object
+            const props = Object.entries(input as object).filter(
+                ([_, value]) =>
+                    typeof value !== "function" &&
+                    (typeof value !== "object" ||
+                        value === null ||
+                        typeof value === "string")
+            );
+
+            if (props.length > 0) {
+                // Use the first simple property as the input
+                const adaptedInput = { input: props[0][1] };
+                return super.execute(adaptedInput as unknown as TInput);
+            }
+        }
+
+        // Last resort: Try to use the whole input as the content
+        return super.execute({
+            input: JSON.stringify(input),
+        } as unknown as TInput);
     }
 
     /**
@@ -228,7 +260,7 @@ Make sure to:
      */
     private createDefaultPrompt(): PromptTemplate<TInput> {
         return `Content to classify:
-{{${this.inputField}}}
+{{input}}
 
 `;
     }
