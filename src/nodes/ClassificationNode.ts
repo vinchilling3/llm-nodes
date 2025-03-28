@@ -136,17 +136,17 @@ export class ClassificationNode<
      * This ensures users can pass any property as the content to classify
      */
     async execute(input: TInput): Promise<ClassificationResult<TCategory>> {
-        console.log("ClassificationNode.execute input:", JSON.stringify(input, null, 2));
-        
         // Check if input has a property named "input"
         if ((input as any).input !== undefined) {
             // Use as is
             return super.execute(input);
         }
-        
+
         // Check if input has a property named "content" (special case for content moderation)
         if ((input as any).content !== undefined) {
-            return super.execute({ input: (input as any).content } as unknown as TInput);
+            return super.execute({
+                input: (input as any).content,
+            } as unknown as TInput);
         }
 
         // First attempt: If input is a string, use it directly
@@ -203,9 +203,12 @@ export class ClassificationNode<
             // If it's a string template, wrap it with content markers and append instructions
             return (input: TInput) => {
                 // Generate the content portion with the template
-                const content = basePrompt.replace(/\{\{([^}]+)\}\}/g, (_, key) => {
-                    return String((input as any)[key] ?? "");
-                });
+                const content = basePrompt.replace(
+                    /\{\{([^}]+)\}\}/g,
+                    (_, key) => {
+                        return String((input as any)[key] ?? "");
+                    }
+                );
                 // Then append the classification instructions
                 return this.appendClassificationInstructions(content);
             };
