@@ -136,14 +136,18 @@ export class ClassificationNode<
      * This ensures users can pass any property as the content to classify
      */
     async execute(input: TInput): Promise<ClassificationResult<TCategory>> {
+        console.log("ClassificationNode.execute input:", JSON.stringify(input, null, 2));
+        
         // Check if input has a property named "input"
         if ((input as any).input !== undefined) {
             // Use as is
             return super.execute(input);
         }
-
-        // If no "input" property exists, find the first available property
-        // or use the entire input as the content to classify
+        
+        // Check if input has a property named "content" (special case for content moderation)
+        if ((input as any).content !== undefined) {
+            return super.execute({ input: (input as any).content } as unknown as TInput);
+        }
 
         // First attempt: If input is a string, use it directly
         if (typeof input === "string") {
@@ -196,8 +200,15 @@ export class ClassificationNode<
                 return this.appendClassificationInstructions(basePromptText);
             };
         } else {
-            // If it's a string template, append instructions at the end
-            return `${basePrompt}\n\n${this.getClassificationInstructions()}`;
+            // If it's a string template, wrap it with content markers and append instructions
+            return (input: TInput) => {
+                // Generate the content portion with the template
+                const content = basePrompt.replace(/\{\{([^}]+)\}\}/g, (_, key) => {
+                    return String((input as any)[key] ?? "");
+                });
+                // Then append the classification instructions
+                return this.appendClassificationInstructions(content);
+            };
         }
     }
 
@@ -207,7 +218,9 @@ export class ClassificationNode<
      * @returns Enhanced prompt with classification instructions
      */
     private appendClassificationInstructions(prompt: string): string {
-        return `${prompt}\n\n${this.getClassificationInstructions()}`;
+        // Make sure the content to classify is clearly marked
+        const result = `CONTENT TO CLASSIFY:\n${prompt}\n\n${this.getClassificationInstructions()}`;
+        return result;
     }
 
     /**
@@ -221,8 +234,10 @@ export class ClassificationNode<
 
         let instructions = `
 CLASSIFICATION TASK:
-Analyze the above content and classify it into exactly ONE of the following categories:
+Carefully analyze the CONTENT TO CLASSIFY above and classify it into exactly ONE of the following categories:
 ${categoriesList}
+
+IMPORTANT: You MUST be decisive and choose the most appropriate category. If you're unsure, choose the category that best fits and adjust your confidence score accordingly. Avoid defaulting to "NeedsReview" unless truly necessary.
 
 Your response MUST be in JSON format with the following structure:
 {
@@ -240,9 +255,13 @@ Your response MUST be in JSON format with the following structure:
 }
 
 Make sure to:
-1. Choose ONLY ONE category from the list provided
+1. Choose ONLY ONE category from the list provided - be decisive in your choice
 2. Provide a confidence score between 0 and 1
 3. Return valid JSON that can be parsed directly
+4. Consider these category guidelines:
+   - "Safe": Content that is appropriate and doesn't contain concerning material
+   - "Unsafe": Content that contains harmful, illegal, or inappropriate material
+   - "NeedsReview": ONLY use when genuinely unable to determine if content is safe or unsafe
 `;
 
         return instructions;
@@ -259,9 +278,10 @@ Make sure to:
      * - Emphasize need for selecting from provided categories only
      */
     private createDefaultPrompt(): PromptTemplate<TInput> {
-        return `Content to classify:
+        return `Analyze the following content for classification:
 {{input}}
 
+Be decisive in your classification and choose the most appropriate category from the provided options.
 `;
     }
 
