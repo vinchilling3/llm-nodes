@@ -72,6 +72,13 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
     }
 
     /**
+     * Get the formatted prompt for this node
+     */
+    getPrompt(input: TInput): PromptTemplate<TInput> {
+        return this.generatePrompt(input);
+    }
+
+    /**
      * Execute this node with the provided input
      */
     async execute(input: TInput): Promise<TOutput> {
