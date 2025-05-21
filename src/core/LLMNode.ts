@@ -16,6 +16,7 @@ import { createModel, createMessages } from "./modelFactory";
 export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
     protected promptTemplate: PromptTemplate<TInput>;
     protected llm: BaseChatModel;
+    protected inputPreprocessor: (input: TInput) => any;
     protected parser: ResponseParser<TOutput>;
     protected llmConfig: LLMConfig;
     protected usageRecords: UsageRecord[] = [];
@@ -24,6 +25,7 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
         this.promptTemplate = options.promptTemplate;
         this.parser = options.parser;
         this.llmConfig = options.llmConfig;
+        this.inputPreprocessor = options.inputPreprocessor || ((input) => input);
 
         // Ensure provider is set for backward compatibility
         const config = {
@@ -50,9 +52,16 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
     }
 
     /**
-     * Generate the prompt from the input data
+     * Generate the prompt from the input data.
+     * Calls the input preprocessor if provided.
      */
     protected generatePrompt(input: TInput): string {
+        // Preprocess the input if a preprocessor is provided
+        if (this.inputPreprocessor) {
+            input = this.inputPreprocessor(input);
+        }
+
+        // If the prompt template is a function, call it with the input
         if (typeof this.promptTemplate === "function") {
             return this.promptTemplate(input);
         }
@@ -104,7 +113,7 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
         // Parse the response
         return this.parser(response.content as string);
     }
-    
+
     /**
      * Record token usage from a model response
      */
@@ -115,17 +124,17 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
             model: this.llmConfig.model,
             tokenUsage: tokenUsage
         };
-        
+
         this.usageRecords.push(record);
     }
-    
+
     /**
      * Get all usage records
      */
     getUsageRecords(): UsageRecord[] {
         return [...this.usageRecords];
     }
-    
+
     /**
      * Get total token usage
      */
@@ -136,13 +145,13 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
                 outputTokens: total.outputTokens + record.tokenUsage.outputTokens
             };
         }, { inputTokens: 0, outputTokens: 0 });
-        
+
         return {
             ...usage,
             totalTokens: usage.inputTokens + usage.outputTokens
         };
     }
-    
+
     /**
      * Clear usage records
      */
@@ -160,14 +169,14 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
         getTotalTokenUsage(): TokenUsage & { totalTokens: number };
     } {
         const self = this;
-        
+
         // Create pipeline with token usage tracking
         return {
             execute: async (input: TInput): Promise<TNextOutput> => {
                 const intermediateResult = await self.execute(input);
                 return nextNode.execute(intermediateResult);
             },
-            
+
             getUsageRecords(): UsageRecord[] {
                 const records = [...self.getUsageRecords()];
                 if ('getUsageRecords' in nextNode) {
@@ -175,7 +184,7 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
                 }
                 return records;
             },
-            
+
             getTotalTokenUsage(): TokenUsage & { totalTokens: number } {
                 const usage = self.getTotalTokenUsage();
                 if ('getTotalTokenUsage' in nextNode) {

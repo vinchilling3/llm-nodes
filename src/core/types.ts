@@ -119,4 +119,5 @@ export type NodeOptions<TInput, TOutput> = {
     promptTemplate: PromptTemplate<TInput>;
     llmConfig: LLMConfig;
     parser: ResponseParser<TOutput>;
+    inputPreprocessor?: (input: TInput) => any;
 };
