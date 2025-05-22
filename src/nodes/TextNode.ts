@@ -1,5 +1,6 @@
+import { GeneralNodeOptions } from "..";
 import { LLMNode } from "../core/LLMNode";
-import { LLMConfig, PromptTemplate } from "../core/types";
+import { PromptTemplate } from "../core/types";
 import { textParser } from "../parsers/structured";
 
 /**
@@ -33,10 +34,7 @@ export class TextNode<TInput> extends LLMNode<TInput, string> {
      * - Simply passes the text parser to the parent LLMNode
      * - All other functionality is inherited from LLMNode
      */
-    constructor(options: {
-        promptTemplate: PromptTemplate<TInput>;
-        llmConfig: LLMConfig;
-    }) {
+    constructor(options: GeneralNodeOptions<TInput, string>) {
         super({
             promptTemplate: options.promptTemplate,
             llmConfig: options.llmConfig,

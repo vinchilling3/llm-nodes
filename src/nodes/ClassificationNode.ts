@@ -1,5 +1,5 @@
 import { LLMNode } from "../core/LLMNode";
-import { LLMConfig, PromptTemplate } from "../core/types";
+import { GeneralNodeOptions, LLMConfig, PromptTemplate } from "../core/types";
 import { jsonParser } from "../parsers/json";
 
 /**
@@ -68,11 +68,9 @@ export class ClassificationNode<
      */
     constructor(options: {
         categories: TCategory[];
-        promptTemplate?: PromptTemplate<TInput>;
-        llmConfig: LLMConfig;
         includeExplanation?: boolean;
         defaultPrompt?: boolean;
-    }) {
+    } & GeneralNodeOptions<TInput, ClassificationResult<TCategory>>) {
         // Store categories for use after super() call
         const categories = [...options.categories];
         const includeExplanation = options.includeExplanation ?? false;
@@ -362,8 +360,7 @@ Be decisive in your classification and choose the most appropriate category from
         // Validate category exists in our list
         if (!normalizedCategory) {
             throw new Error(
-                `Invalid category "${
-                    result.category
+                `Invalid category "${result.category
                 }". Must be one of: ${this.categories.join(", ")}`
             );
         }

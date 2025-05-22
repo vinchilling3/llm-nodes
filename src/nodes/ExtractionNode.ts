@@ -1,5 +1,5 @@
 import { LLMNode } from "../core/LLMNode";
-import { LLMConfig, PromptTemplate } from "../core/types";
+import { GeneralNodeOptions, LLMConfig, PromptTemplate } from "../core/types";
 import { jsonParser } from "../parsers/json";
 
 /**
@@ -92,16 +92,15 @@ export class ExtractionNode<
      */
     constructor(options: {
         fields: ExtractionField[];
-        promptTemplate: PromptTemplate<TInput>;
-        llmConfig: LLMConfig;
         includeConfidence?: boolean;
         extractionStrategy?: "direct" | "iterative";
-    }) {
+    } & GeneralNodeOptions<TInput, ExtractionResult<TOutput>>
+    ) {
         // Store configuration for use after super() call
         const fields = [...options.fields];
         const includeConfidence = options.includeConfidence ?? true;
         const extractionStrategy = options.extractionStrategy ?? "direct";
-        
+
         // Validate field names are unique
         const fieldNames = fields.map(field => field.name);
         const uniqueFieldNames = new Set(fieldNames);
@@ -126,7 +125,7 @@ export class ExtractionNode<
         this.fields = fields;
         this.includeConfidence = includeConfidence;
         this.extractionStrategy = extractionStrategy;
-        
+
         // After super() is called, we can enhance the prompt template
         this.promptTemplate = this.createExtractionPrompt(options.promptTemplate);
     }
@@ -177,7 +176,7 @@ export class ExtractionNode<
             const requiredStr = field.required === false ? "Optional" : "Required";
             const exampleStr = field.example ? `Example: "${field.example}"` : "";
             const formatStr = field.format ? `Format: ${field.format}` : "";
-            
+
             return `- ${field.name}: ${field.description} (${requiredStr}) ${exampleStr} ${formatStr}`.trim();
         }).join('\n');
 
@@ -194,11 +193,11 @@ Your response MUST be in JSON format with the following structure:
         // Add expected fields to the example
         this.fields.forEach((field, index) => {
             const comma = index < this.fields.length - 1 ? "," : "";
-            const example = field.example ? field.example : 
+            const example = field.example ? field.example :
                 field.format === "number" ? "42" :
-                field.format === "date" ? "2023-01-01" :
-                field.format === "list" ? '["item1", "item2"]' : '"extracted value"';
-            
+                    field.format === "date" ? "2023-01-01" :
+                        field.format === "list" ? '["item1", "item2"]' : '"extracted value"';
+
             instructions += `    "${field.name}": ${example}${comma}\n`;
         });
 
@@ -250,7 +249,7 @@ Make sure to:
         if (this.extractionStrategy === "iterative") {
             return this.executeIterative(input);
         }
-        
+
         // Default to direct extraction
         return super.execute(input);
     }
@@ -274,7 +273,7 @@ Make sure to:
         const data = {} as TOutput;
         const confidences: Record<string, number> = {};
         const warnings: string[] = [];
-        
+
         // Process each field with an individual LLM call
         for (const field of this.fields) {
             try {
@@ -284,44 +283,44 @@ Make sure to:
                     llmConfig: this.llmConfig,
                     parser: (response: string) => this.parseFieldResponse(response, field.name),
                 });
-                
+
                 // Execute the field extraction
                 const fieldResult = await fieldNode.execute(input);
-                
+
                 // Merge the field result into our overall results
                 if (fieldResult.data !== null && fieldResult.data !== undefined) {
                     (data as any)[field.name] = fieldResult.data;
                 }
-                
+
                 if (fieldResult.confidence !== undefined) {
                     confidences[field.name] = fieldResult.confidence;
                 }
-                
+
                 if (fieldResult.warning) {
                     warnings.push(fieldResult.warning);
                 }
             } catch (error) {
                 // If extraction fails, record the error and continue
                 warnings.push(`Failed to extract ${field.name}: ${(error as Error).message}`);
-                
+
                 // For required fields, this is more serious
                 if (field.required !== false) {
                     warnings.push(`WARNING: Required field '${field.name}' could not be extracted`);
                 }
             }
         }
-        
+
         // Compile the final result
         const result: ExtractionResult<TOutput> = {
             data,
             warnings: warnings.length > 0 ? warnings : undefined,
         };
-        
+
         // Add confidences if we're using them and have some
         if (this.includeConfidence && Object.keys(confidences).length > 0) {
             result.confidences = confidences as any;
         }
-        
+
         return result;
     }
 
@@ -377,7 +376,7 @@ Make sure to:
      * Parse a response from a single field extraction
      */
     private parseFieldResponse(
-        response: string, 
+        response: string,
         fieldName: string
     ): { data: any; confidence?: number; warning?: string } {
         try {
@@ -390,7 +389,7 @@ Make sure to:
         } catch (error) {
             // If parsing fails, try to extract the value directly
             let match = response.match(new RegExp(`"${fieldName}"\\s*:\\s*"([^"]+)"`)) ||
-                        response.match(new RegExp(`"${fieldName}"\\s*:\\s*(\\w+)`));
+                response.match(new RegExp(`"${fieldName}"\\s*:\\s*(\\w+)`));
 
             if (match) {
                 return {
@@ -427,20 +426,20 @@ Make sure to:
                 confidences?: Record<string, number>;
                 warnings?: string[];
             }>();
-            
+
             const parsed = parser(rawOutput);
             const warnings = parsed.warnings || [];
-            
+
             // Validate the extracted data against field requirements
             this.fields.forEach(field => {
                 const value = (parsed.data as any)[field.name];
-                
+
                 // Check if required fields are present
                 if (field.required !== false && (value === undefined || value === null)) {
                     warnings.push(`Required field '${field.name}' is missing or null`);
                 }
             });
-            
+
             // Return the validated result
             return {
                 data: parsed.data,
@@ -452,13 +451,13 @@ Make sure to:
             // Try to extract key-value pairs using regex
             const data = {} as TOutput;
             const warnings = ["Failed to parse JSON response, falling back to regex extraction"];
-            
+
             this.fields.forEach(field => {
                 try {
                     // Try to find the field in the text
                     const regex = new RegExp(`${field.name}[\\s:"]*([\\w\\s.@\\-+]+)["\\s,}]`, 'i');
                     const match = rawOutput.match(regex);
-                    
+
                     if (match && match[1]) {
                         (data as any)[field.name] = match[1].trim();
                     } else if (field.required !== false) {
@@ -470,7 +469,7 @@ Make sure to:
                     }
                 }
             });
-            
+
             return {
                 data,
                 warnings,

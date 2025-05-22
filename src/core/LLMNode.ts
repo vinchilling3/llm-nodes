@@ -2,7 +2,7 @@ import {
     IExecutable,
     PromptTemplate,
     ResponseParser,
-    NodeOptions,
+    BaseNodeOptions,
     LLMConfig,
     TokenUsage,
     UsageRecord
@@ -21,7 +21,7 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
     protected llmConfig: LLMConfig;
     protected usageRecords: UsageRecord[] = [];
 
-    constructor(options: NodeOptions<TInput, TOutput>) {
+    constructor(options: BaseNodeOptions<TInput, TOutput>) {
         this.promptTemplate = options.promptTemplate;
         this.parser = options.parser;
         this.llmConfig = options.llmConfig;

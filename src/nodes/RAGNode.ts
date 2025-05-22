@@ -1,5 +1,5 @@
+import { GeneralNodeOptions } from "..";
 import { LLMNode } from "../core/LLMNode";
-import { LLMConfig, PromptTemplate } from "../core/types";
 
 /**
  * Document with content and metadata
@@ -100,12 +100,10 @@ export class RAGNode<TInput, TOutput> extends LLMNode<
      */
     constructor(options: {
         retriever: (query: string, options?: any) => Promise<RetrievalResult>;
-        promptTemplate: PromptTemplate<TInput>;
-        llmConfig: LLMConfig;
         maxDocuments?: number;
         outputParser: (text: string) => TOutput;
         includeMetadata?: boolean;
-    }) {
+    } & GeneralNodeOptions<TInput, RAGResponse<TOutput>>) {
         throw new Error("Not implemented");
         // Implementation will:
         // 1. Store retriever function and configuration

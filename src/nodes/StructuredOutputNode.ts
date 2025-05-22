@@ -2,6 +2,7 @@ import { z } from "zod";
 import { LLMNode } from "../core/LLMNode";
 import { LLMConfig, ResponseParser, PromptTemplate } from "../core/types";
 import { jsonParser } from "../parsers/json";
+import { GeneralNodeOptions } from "..";
 
 /**
  * StructuredOutputNode
@@ -64,10 +65,10 @@ export class StructuredOutputNode<TInput, TOutput> extends LLMNode<
         llmConfig: LLMConfig;
         maxRetries?: number;
         invalidResponseTemplate?: string;
-    }) {
+    } & GeneralNodeOptions<TInput, TOutput>) {
         // Store schema locally for parser creation
         const schema = options.schema;
-        
+
         // Create a custom parser that validates against the schema
         const schemaParser: ResponseParser<TOutput> = (rawResponse: string) => {
             try {
@@ -269,10 +270,10 @@ IMPORTANT: Your response MUST be valid JSON that matches the schema exactly. Do 
             // Attempt to create a simplified schema description
             // Since zod's describe() method might not be available in all versions,
             // we'll create a simplified description
-            
+
             // Generate a sample schema description based on the schema type
             let description: any;
-            
+
             try {
                 // Try to use the schema's describe method if available
                 if (typeof schema.describe === 'function') {
@@ -289,15 +290,15 @@ IMPORTANT: Your response MUST be valid JSON that matches the schema exactly. Do 
                 // If schema.describe() fails, create a basic description
                 description = { type: "object" };
             }
-            
+
             // Ensure the schema description is properly formatted
             const formattedDescription = JSON.stringify(description || { type: "object" }, null, 2);
-            
+
             if (formattedDescription === '{}' || !formattedDescription) {
                 // If the schema description is empty, provide a generic fallback
                 return "JSON object matching the required schema";
             }
-            
+
             return formattedDescription;
         } catch (e) {
             // Fallback for complex schemas or errors

@@ -2,18 +2,18 @@
  * Token usage information from an LLM call
  */
 export type TokenUsage = {
-  inputTokens: number;
-  outputTokens: number;
+    inputTokens: number;
+    outputTokens: number;
 };
 
 /**
  * Record of a single LLM call usage
  */
 export type UsageRecord = {
-  timestamp: Date;
-  provider: string;
-  model: string;
-  tokenUsage: TokenUsage;
+    timestamp: Date;
+    provider: string;
+    model: string;
+    tokenUsage: TokenUsage;
 };
 
 /**
@@ -112,12 +112,19 @@ export type PromptTemplate<TInput> = string | ((input: TInput) => string);
  */
 export type ResponseParser<TOutput> = (rawResponse: string) => TOutput;
 
+
+/**
+ * Configuration options for all LLM nodes
+ */
+export type GeneralNodeOptions<TInput, TOutput> = {
+    promptTemplate: PromptTemplate<TInput>;
+    llmConfig: LLMConfig;
+    inputPreprocessor?: (input: TInput) => any;
+}
+
 /**
  * Configuration options for an LLMNode
  */
-export type NodeOptions<TInput, TOutput> = {
-    promptTemplate: PromptTemplate<TInput>;
-    llmConfig: LLMConfig;
+export type BaseNodeOptions<TInput, TOutput> = {
     parser: ResponseParser<TOutput>;
-    inputPreprocessor?: (input: TInput) => any;
-};
+} & GeneralNodeOptions<TInput, TOutput>;

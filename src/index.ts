@@ -3,7 +3,8 @@ export { LLMNode } from "./core/LLMNode";
 export {
     IExecutable,
     LLMConfig,
-    NodeOptions,
+    BaseNodeOptions,
+    GeneralNodeOptions,
     PromptTemplate,
     ResponseParser,
     // Token tracking types

@@ -1,5 +1,5 @@
 import { LLMNode } from "../core/LLMNode";
-import { LLMConfig, PromptTemplate } from "../core/types";
+import { GeneralNodeOptions, LLMConfig, PromptTemplate } from "../core/types";
 
 /**
  * Step in a reasoning chain
@@ -81,13 +81,11 @@ export class ChainNode<TInput, TOutput> extends LLMNode<
      * - The chain should be visible in the final output for transparency
      */
     constructor(options: {
-        promptTemplate: PromptTemplate<TInput>;
-        llmConfig: LLMConfig;
         maxSteps?: number;
         allowEarlyStopping?: boolean;
         reasoningStrategy?: "forward" | "backward" | "recursive";
         outputParser?: (finalReasoning: string) => TOutput;
-    }) {
+    } & GeneralNodeOptions<TInput, ChainResult<TOutput>>) {
         // Implementation will:
         // 1. Store chain configuration options
         // 2. Configure reasoning strategy
