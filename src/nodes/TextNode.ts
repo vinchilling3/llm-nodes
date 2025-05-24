@@ -36,8 +36,7 @@ export class TextNode<TInput> extends LLMNode<TInput, string> {
      */
     constructor(options: GeneralNodeOptions<TInput, string>) {
         super({
-            promptTemplate: options.promptTemplate,
-            llmConfig: options.llmConfig,
+            ...options,
             parser: textParser(),
         });
     }

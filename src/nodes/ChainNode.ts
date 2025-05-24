@@ -92,8 +92,7 @@ export class ChainNode<TInput, TOutput> extends LLMNode<
         // 3. Set up parser for final output
         // 4. Initialize parent with custom execution flow
         super({
-            promptTemplate: options.promptTemplate,
-            llmConfig: options.llmConfig,
+            ...options,
             parser: (rawResponse: string) => ({} as ChainResult<TOutput>), // Will be implemented
         });
 

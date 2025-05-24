@@ -91,8 +91,7 @@ export class StructuredOutputNode<TInput, TOutput> extends LLMNode<
 
         // Initialize parent with the schema-validating parser
         super({
-            promptTemplate: options.promptTemplate,
-            llmConfig: options.llmConfig,
+            ...options,
             parser: schemaParser,
         });
 

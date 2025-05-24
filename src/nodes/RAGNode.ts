@@ -110,8 +110,7 @@ export class RAGNode<TInput, TOutput> extends LLMNode<
         // 2. Configure output parser
         // 3. Initialize with custom execution flow that includes retrieval
         super({
-            promptTemplate: options.promptTemplate,
-            llmConfig: options.llmConfig,
+            ...options,
             parser: (rawResponse: string) => ({} as RAGResponse<TOutput>), // Will be implemented
         });
 

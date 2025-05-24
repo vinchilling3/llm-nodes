@@ -92,8 +92,8 @@ export class ClassificationNode<
         const temporaryPrompt = options.promptTemplate || "{{input}}";
 
         super({
+            ...options,
             promptTemplate: temporaryPrompt,
-            llmConfig,
             parser: (rawResponse: string) => {
                 try {
                     const parser =

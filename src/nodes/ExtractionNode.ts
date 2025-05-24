@@ -116,7 +116,7 @@ export class ExtractionNode<
 
         // Call super first with the original prompt
         super({
-            promptTemplate: options.promptTemplate,
+            ...options,
             llmConfig,
             parser: (rawResponse: string) => this.parseExtractionResult(rawResponse),
         });
