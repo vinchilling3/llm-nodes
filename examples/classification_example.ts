@@ -10,6 +10,7 @@ async function sentimentAnalysis() {
   // Create a classification node for sentiment analysis
   const sentimentClassifier = new ClassificationNode<string, SentimentCategory>({
     categories: ["Positive", "Negative", "Neutral"],
+    promptTemplate: "{{input}}", // Use default template
     llmConfig: {
       provider: "openai", // Specify the provider
       model: "gpt-3.5-turbo", // Replace with your model of choice

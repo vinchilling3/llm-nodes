@@ -11,7 +11,12 @@ export {
     TokenUsage,
     UsageRecord,
 } from "./core/types";
-export { getApiKeyEnvVar } from "./core/modelFactory";
+export { 
+    getApiKeyEnvVar,
+    supportsResearchMode,
+    OPENAI_REASONING_MODELS,
+    ANTHROPIC_THINKING_MODELS
+} from "./core/modelFactory";
 
 // Parser exports
 export { jsonParser, jsonFieldParser } from "./parsers/json";

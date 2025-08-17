@@ -104,10 +104,18 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
         // @ts-ignore - Access usage info that may exist on the underlying response object
         const usage = response.usage || (response as any)._llmResult?.usage || null;
         if (usage) {
-            this.recordUsage({
+            const tokenUsage: TokenUsage = {
                 inputTokens: usage.promptTokens || usage.promptTokenCount || 0,
                 outputTokens: usage.completionTokens || usage.completionTokenCount || 0
-            });
+            };
+            
+            // For reasoning models, track reasoning tokens separately
+            if (usage.reasoningTokens || usage.reasoning_tokens || usage.thinkingTokens || usage.thinking_tokens) {
+                tokenUsage.researchTokens = usage.reasoningTokens || usage.reasoning_tokens || 
+                                          usage.thinkingTokens || usage.thinking_tokens || 0;
+            }
+            
+            this.recordUsage(tokenUsage);
         }
 
         // Parse the response
@@ -142,13 +150,14 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
         const usage = this.usageRecords.reduce((total, record) => {
             return {
                 inputTokens: total.inputTokens + record.tokenUsage.inputTokens,
-                outputTokens: total.outputTokens + record.tokenUsage.outputTokens
+                outputTokens: total.outputTokens + record.tokenUsage.outputTokens,
+                researchTokens: (total.researchTokens || 0) + (record.tokenUsage.researchTokens || 0)
             };
-        }, { inputTokens: 0, outputTokens: 0 });
+        }, { inputTokens: 0, outputTokens: 0, researchTokens: 0 });
 
         return {
             ...usage,
-            totalTokens: usage.inputTokens + usage.outputTokens
+            totalTokens: usage.inputTokens + usage.outputTokens + (usage.researchTokens || 0)
         };
     }
 
@@ -191,8 +200,9 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
                     const nextUsage = (nextNode as any).getTotalTokenUsage();
                     usage.inputTokens += nextUsage.inputTokens;
                     usage.outputTokens += nextUsage.outputTokens;
+                    usage.researchTokens = (usage.researchTokens || 0) + (nextUsage.researchTokens || 0);
                     // Recompute total tokens
-                    usage.totalTokens = usage.inputTokens + usage.outputTokens;
+                    usage.totalTokens = usage.inputTokens + usage.outputTokens + (usage.researchTokens || 0);
                 }
                 return usage;
             }

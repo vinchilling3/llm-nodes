@@ -4,6 +4,7 @@
 export type TokenUsage = {
     inputTokens: number;
     outputTokens: number;
+    researchTokens?: number; // For tracking reasoning/thinking tokens separately
 };
 
 /**
@@ -36,6 +37,7 @@ export interface BaseLLMConfig {
     model: string;
     temperature?: number;
     maxTokens?: number;
+    enableResearch?: boolean; // Enable research/thinking mode for compatible models
     providerOptions?: {
         systemPrompt?: string;
         [key: string]: any;
@@ -52,6 +54,10 @@ export interface OpenAIConfig extends BaseLLMConfig {
     frequencyPenalty?: number;
     presencePenalty?: number;
     topP?: number;
+    reasoning?: {
+        effort: 'low' | 'medium' | 'high';
+        summary?: 'auto' | 'concise' | 'detailed';
+    };
 }
 
 /**
@@ -63,6 +69,10 @@ export interface AnthropicConfig extends BaseLLMConfig {
     topK?: number;
     topP?: number;
     maxTokensToSample?: number;
+    thinking?: {
+        type: 'enabled';
+        budget_tokens: number;
+    };
 }
 
 /**

@@ -21,6 +21,29 @@ import {
 export const DEFAULT_TEMPERATURE = 0.7;
 
 /**
+ * List of OpenAI models that support reasoning/research mode
+ */
+export const OPENAI_REASONING_MODELS = ['o1-preview', 'o1-mini', 'o3', 'o3-mini', 'o4-mini'];
+
+/**
+ * List of Anthropic models that support thinking mode
+ */
+export const ANTHROPIC_THINKING_MODELS = ['claude-3-7-sonnet', 'claude-3.7-sonnet', 'claude-3-7-sonnet-latest'];
+
+/**
+ * Check if a model supports research/reasoning features
+ */
+export function supportsResearchMode(provider: string, model: string): boolean {
+    if (provider === 'openai') {
+        return OPENAI_REASONING_MODELS.some(m => model.includes(m));
+    }
+    if (provider === 'anthropic') {
+        return ANTHROPIC_THINKING_MODELS.some(m => model.includes(m));
+    }
+    return false;
+}
+
+/**
  * Type guard for OpenAI config
  */
 export function isOpenAIConfig(config: LLMConfig): config is OpenAIConfig {
@@ -68,9 +91,13 @@ export function createModel(config: LLMConfig): BaseChatModel {
                 frequencyPenalty,
                 presencePenalty,
                 topP,
+                enableResearch,
+                reasoning,
                 ...rest
             } = config as OpenAIConfig;
-            return new ChatOpenAI({
+            
+            // Build configuration
+            const openAIConfig: any = {
                 modelName: model,
                 temperature: temperature ?? DEFAULT_TEMPERATURE,
                 maxTokens,
@@ -79,13 +106,26 @@ export function createModel(config: LLMConfig): BaseChatModel {
                 presencePenalty,
                 topP,
                 ...rest,
-            });
+            };
+            
+            // Add reasoning configuration for compatible models
+            if (enableResearch && supportsResearchMode('openai', model)) {
+                // Use provided reasoning config or defaults
+                openAIConfig.reasoning = reasoning || {
+                    effort: 'medium',
+                    summary: 'auto'
+                };
+            }
+            
+            return new ChatOpenAI(openAIConfig);
         }
 
         case "anthropic": {
-            const { apiKey, topK, topP, maxTokensToSample, ...rest } =
+            const { apiKey, topK, topP, maxTokensToSample, enableResearch, thinking, ...rest } =
                 config as AnthropicConfig;
-            return new ChatAnthropic({
+            
+            // Build configuration
+            const anthropicConfig: any = {
                 modelName: model,
                 temperature: temperature ?? DEFAULT_TEMPERATURE,
                 maxTokens,
@@ -94,7 +134,18 @@ export function createModel(config: LLMConfig): BaseChatModel {
                 topP,
                 maxTokensToSample: maxTokensToSample ?? maxTokens,
                 ...rest,
-            });
+            };
+            
+            // Add thinking configuration for compatible models
+            if (enableResearch && supportsResearchMode('anthropic', model)) {
+                // Use provided thinking config or defaults
+                anthropicConfig.thinking = thinking || {
+                    type: 'enabled',
+                    budget_tokens: 1000
+                };
+            }
+            
+            return new ChatAnthropic(anthropicConfig);
         }
 
         case "grok": {

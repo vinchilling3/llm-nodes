@@ -26,6 +26,7 @@ GROK_API_KEY=your_grok_api_key_here
 -   **Type-Safe**: Full TypeScript support with generics for input and output types
 -   **Composable**: Easily connect nodes using functional composition
 -   **Provider Agnostic**: Support for multiple LLM providers (OpenAI, Anthropic, etc.)
+-   **Research Mode Support**: Native support for advanced reasoning models (OpenAI o1/o3, Anthropic Claude 3.7+)
 -   **Specialized Nodes**: Purpose-built nodes for common tasks like classification, extraction, and RAG
 -   **Flexible Pipelines**: Advanced pipeline patterns for complex workflows
 -   **LangChain Compatible**: Built on top of LangChain for compatibility with its ecosystem
@@ -271,8 +272,21 @@ The core class that encapsulates an LLM interaction pattern.
     model: string;
     temperature?: number;
     maxTokens?: number;
-    systemPrompt?: string;
-    // Provider-specific options
+    enableResearch?: boolean;  // Enable research/thinking mode
+    providerOptions?: {
+      systemPrompt?: string;
+      // Provider-specific options
+    };
+    // OpenAI research configuration
+    reasoning?: {
+      effort: 'low' | 'medium' | 'high';
+      summary?: 'auto' | 'concise' | 'detailed';
+    };
+    // Anthropic thinking configuration
+    thinking?: {
+      type: 'enabled';
+      budget_tokens: number;
+    };
   };
   parser: (rawResponse: string) => TOutput;
 }
@@ -303,6 +317,12 @@ The core class that encapsulates an LLM interaction pattern.
 -   `regexParser<T>(patterns: Record<keyof T, RegExp>)` - Extract data using regex patterns
 -   `labeledFieldsParser<T>()` - Parse responses with labeled fields
 -   `textParser()` - Return raw text responses
+
+### Research Mode Utilities
+
+-   `supportsResearchMode(provider: string, model: string): boolean` - Check if a model supports research features
+-   `OPENAI_REASONING_MODELS: string[]` - List of OpenAI models with reasoning support
+-   `ANTHROPIC_THINKING_MODELS: string[]` - List of Anthropic models with thinking support
 
 ## Token Usage Tracking
 
@@ -344,9 +364,129 @@ const result = await pipeline.execute(input);
 const usage = pipeline.getTotalTokenUsage();
 ```
 
+## Research Mode Support
+
+The library now includes native support for advanced reasoning and thinking models from OpenAI and Anthropic. These models can perform deeper analysis and show their reasoning process.
+
+### Supported Research Models
+
+**OpenAI:**
+- o1-preview, o1-mini
+- o3, o3-mini
+- o4-mini
+
+**Anthropic:**
+- claude-3-7-sonnet
+- claude-3.7-sonnet
+- claude-3-7-sonnet-latest
+
+### Basic Usage
+
+Enable research mode by setting `enableResearch: true` in your LLM configuration:
+
+```typescript
+import { LLMNode, jsonParser } from "llm-nodes";
+
+// OpenAI o3 with reasoning mode
+const reasoningNode = new LLMNode({
+    promptTemplate: "Solve this complex problem: {{problem}}",
+    llmConfig: {
+        provider: "openai",
+        model: "o3-mini",
+        enableResearch: true,
+        reasoning: {
+            effort: "high",      // "low" | "medium" | "high"
+            summary: "detailed"  // "auto" | "concise" | "detailed"
+        }
+    },
+    parser: jsonParser()
+});
+
+// Anthropic Claude 3.7 with thinking mode
+const thinkingNode = new LLMNode({
+    promptTemplate: "Analyze this data: {{data}}",
+    llmConfig: {
+        provider: "anthropic",
+        model: "claude-3-7-sonnet-latest",
+        enableResearch: true,
+        thinking: {
+            type: "enabled",
+            budget_tokens: 2000  // Max tokens for thinking process
+        }
+    },
+    parser: textParser()
+});
+```
+
+### Research Token Tracking
+
+Research modes use additional tokens for reasoning/thinking that are tracked separately:
+
+```typescript
+const result = await reasoningNode.execute({ problem: "..." });
+const usage = reasoningNode.getTotalTokenUsage();
+
+console.log(`Input tokens: ${usage.inputTokens}`);
+console.log(`Output tokens: ${usage.outputTokens}`);
+console.log(`Research tokens: ${usage.researchTokens}`);  // Reasoning/thinking tokens
+console.log(`Total tokens: ${usage.totalTokens}`);
+```
+
+### Advanced Configuration
+
+The library automatically detects research-capable models:
+
+```typescript
+import { supportsResearchMode } from "llm-nodes";
+
+// Check if a model supports research features
+console.log(supportsResearchMode("openai", "o3-mini"));  // true
+console.log(supportsResearchMode("openai", "gpt-4"));    // false
+```
+
+### Research Mode in Pipelines
+
+You can combine research and regular nodes in pipelines:
+
+```typescript
+// First node uses thinking mode for analysis
+const analyzeNode = new LLMNode({
+    promptTemplate: "Analyze: {{input}}",
+    llmConfig: {
+        provider: "anthropic",
+        model: "claude-3-7-sonnet-latest",
+        enableResearch: true,
+        thinking: { type: "enabled", budget_tokens: 1500 }
+    },
+    parser: jsonParser()
+});
+
+// Second node uses regular mode for summarization
+const summarizeNode = new TextNode({
+    promptTemplate: "Summarize: {{analysis}}",
+    llmConfig: {
+        provider: "openai",
+        model: "gpt-4"
+    }
+});
+
+const pipeline = analyzeNode.pipe(summarizeNode);
+const result = await pipeline.execute({ input: "..." });
+
+// Get combined token usage
+const usage = pipeline.getTotalTokenUsage();
+console.log(`Total research tokens: ${usage.researchTokens}`);
+```
+
+### Important Notes
+
+1. **Access Requirements**: OpenAI o1/o3 models require special access. Check OpenAI's documentation for availability.
+2. **Pricing**: Research models typically have different pricing due to additional reasoning tokens.
+3. **Response Time**: Research modes take longer as the model "thinks" through problems.
+4. **Compatibility**: The `enableResearch` flag is ignored for models that don't support it.
+
 ## TODOs
 
-- Support for extended thinking modes
 - RAGNode implementation
 
 ## License
