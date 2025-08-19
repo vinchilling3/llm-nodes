@@ -96,30 +96,49 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
         // Create messages using the factory method
         const messages = createMessages(promptText, this.llmConfig);
 
-        // Call the LLM with appropriate messages
-        const response = await this.llm.call(messages);
+        // Call the LLM using invoke method for better metadata support
+        const response = await this.llm.invoke(messages);
 
         // Record token usage if available in the response
-        // LangChain models add usage data in different ways depending on provider
-        // @ts-ignore - Access usage info that may exist on the underlying response object
-        const usage = response.usage || (response as any)._llmResult?.usage || null;
-        if (usage) {
-            const tokenUsage: TokenUsage = {
-                inputTokens: usage.promptTokens || usage.promptTokenCount || 0,
-                outputTokens: usage.completionTokens || usage.completionTokenCount || 0
-            };
-            
-            // For reasoning models, track reasoning tokens separately
-            if (usage.reasoningTokens || usage.reasoning_tokens || usage.thinkingTokens || usage.thinking_tokens) {
-                tokenUsage.researchTokens = usage.reasoningTokens || usage.reasoning_tokens || 
-                                          usage.thinkingTokens || usage.thinking_tokens || 0;
+        // Modern LangChain returns usage data in usage_metadata on AIMessage responses
+        if (response && typeof response === 'object' && 'usage_metadata' in response) {
+            const usageMetadata = (response as any).usage_metadata;
+            if (usageMetadata) {
+                const tokenUsage: TokenUsage = {
+                    inputTokens: usageMetadata.input_tokens || 0,
+                    outputTokens: usageMetadata.output_tokens || 0
+                };
+                
+                // For reasoning models, check output_token_details for reasoning tokens
+                if (usageMetadata.output_token_details?.reasoning) {
+                    tokenUsage.researchTokens = usageMetadata.output_token_details.reasoning;
+                }
+                
+                this.recordUsage(tokenUsage);
             }
-            
-            this.recordUsage(tokenUsage);
+        } else {
+            // Fallback: try to extract usage from older response formats
+            // @ts-ignore - Access usage info that may exist on the underlying response object
+            const usage = (response as any)?.usage || (response as any)?._llmResult?.usage || null;
+            if (usage) {
+                const tokenUsage: TokenUsage = {
+                    inputTokens: usage.promptTokens || usage.promptTokenCount || usage.prompt_tokens || 0,
+                    outputTokens: usage.completionTokens || usage.completionTokenCount || usage.completion_tokens || 0
+                };
+                
+                // For reasoning models in older formats
+                if (usage.reasoningTokens || usage.reasoning_tokens || usage.thinkingTokens || usage.thinking_tokens) {
+                    tokenUsage.researchTokens = usage.reasoningTokens || usage.reasoning_tokens || 
+                                              usage.thinkingTokens || usage.thinking_tokens || 0;
+                }
+                
+                this.recordUsage(tokenUsage);
+            }
         }
 
-        // Parse the response
-        return this.parser(response.content as string);
+        // Parse the response - handle both AIMessage and string responses
+        const content = typeof response === 'string' ? response : (response as any).content;
+        return this.parser(content as string);
     }
 
     /**
