@@ -12,8 +12,8 @@ export default async function main() {
             "Write a {{format}} about {{topic}} in {{style}} style with {{minWords}} to {{maxWords}} words.",
         llmConfig: {
             provider: "anthropic",
-            // model: "claude-3-7-sonnet-20250219",
-            model: "claude-3-5-sonnet-20241022",
+            model: "claude-3-7-sonnet-20250219",
+            maxTokens: 1024,
         },
     });
 
@@ -21,7 +21,7 @@ export default async function main() {
     const text = await textGenerator.execute({
         format: "sonnet",
         topic: "ai",
-        style: "doom",
+        style: "uplifting",
         minWords: 10,
         maxWords: 150,
     });

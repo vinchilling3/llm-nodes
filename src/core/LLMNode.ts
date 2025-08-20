@@ -5,7 +5,7 @@ import {
     BaseNodeOptions,
     LLMConfig,
     TokenUsage,
-    UsageRecord
+    UsageRecord,
 } from "./types";
 import { ILLMProvider } from "./providers/ILLMProvider";
 import { createProvider } from "./modelFactory";
@@ -25,14 +25,15 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
         this.promptTemplate = options.promptTemplate;
         this.parser = options.parser;
         this.llmConfig = options.llmConfig;
-        this.inputPreprocessor = options.inputPreprocessor || ((input) => input);
+        this.inputPreprocessor =
+            options.inputPreprocessor || ((input) => input);
 
         // Ensure provider is set for backward compatibility
         const config = {
             ...options.llmConfig,
             provider: options.llmConfig.provider || "openai",
         } as LLMConfig;
-        
+
         this.llmConfig = config;
 
         // Initialize provider from config using the factory
@@ -105,7 +106,7 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
                 outputTokens: response.usage.outputTokens,
                 researchTokens: response.usage.thinkingTokens, // Map thinking to research for backward compatibility
                 thinkingTokens: response.usage.thinkingTokens,
-                searchCount: response.usage.searchCount
+                searchCount: response.usage.searchCount,
             };
             this.recordUsage(tokenUsage);
         }
@@ -122,7 +123,7 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
             timestamp: new Date(),
             provider: this.llmConfig.provider,
             model: this.llmConfig.model,
-            tokenUsage: tokenUsage
+            tokenUsage: tokenUsage,
         };
 
         this.usageRecords.push(record);
@@ -139,17 +140,27 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
      * Get total token usage
      */
     getTotalTokenUsage(): TokenUsage & { totalTokens: number } {
-        const usage = this.usageRecords.reduce((total, record) => {
-            return {
-                inputTokens: total.inputTokens + record.tokenUsage.inputTokens,
-                outputTokens: total.outputTokens + record.tokenUsage.outputTokens,
-                researchTokens: (total.researchTokens || 0) + (record.tokenUsage.researchTokens || 0)
-            };
-        }, { inputTokens: 0, outputTokens: 0, researchTokens: 0 });
+        const usage = this.usageRecords.reduce(
+            (total, record) => {
+                return {
+                    inputTokens:
+                        total.inputTokens + record.tokenUsage.inputTokens,
+                    outputTokens:
+                        total.outputTokens + record.tokenUsage.outputTokens,
+                    researchTokens:
+                        (total.researchTokens || 0) +
+                        (record.tokenUsage.researchTokens || 0),
+                };
+            },
+            { inputTokens: 0, outputTokens: 0, researchTokens: 0 }
+        );
 
         return {
             ...usage,
-            totalTokens: usage.inputTokens + usage.outputTokens + (usage.researchTokens || 0)
+            totalTokens:
+                usage.inputTokens +
+                usage.outputTokens +
+                (usage.researchTokens || 0),
         };
     }
 
@@ -163,9 +174,10 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
     /**
      * Connect this node to another node, creating a pipeline
      */
-    pipe<TNextOutput>(
-        nextNode: IExecutable<TOutput, TNextOutput>
-    ): IExecutable<TInput, TNextOutput> & {
+    pipe<TNextOutput>(nextNode: IExecutable<TOutput, TNextOutput>): IExecutable<
+        TInput,
+        TNextOutput
+    > & {
         getUsageRecords(): UsageRecord[];
         getTotalTokenUsage(): TokenUsage & { totalTokens: number };
     } {
@@ -180,7 +192,7 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
 
             getUsageRecords(): UsageRecord[] {
                 const records = [...self.getUsageRecords()];
-                if ('getUsageRecords' in nextNode) {
+                if ("getUsageRecords" in nextNode) {
                     records.push(...(nextNode as any).getUsageRecords());
                 }
                 return records;
@@ -188,16 +200,21 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
 
             getTotalTokenUsage(): TokenUsage & { totalTokens: number } {
                 const usage = self.getTotalTokenUsage();
-                if ('getTotalTokenUsage' in nextNode) {
+                if ("getTotalTokenUsage" in nextNode) {
                     const nextUsage = (nextNode as any).getTotalTokenUsage();
                     usage.inputTokens += nextUsage.inputTokens;
                     usage.outputTokens += nextUsage.outputTokens;
-                    usage.researchTokens = (usage.researchTokens || 0) + (nextUsage.researchTokens || 0);
+                    usage.researchTokens =
+                        (usage.researchTokens || 0) +
+                        (nextUsage.researchTokens || 0);
                     // Recompute total tokens
-                    usage.totalTokens = usage.inputTokens + usage.outputTokens + (usage.researchTokens || 0);
+                    usage.totalTokens =
+                        usage.inputTokens +
+                        usage.outputTokens +
+                        (usage.researchTokens || 0);
                 }
                 return usage;
-            }
+            },
         };
     }
 }
