@@ -1,6 +1,11 @@
 import { LLMNode } from "./LLMNode";
 import { TextNode } from "../nodes/TextNode";
-import { OpenAIConfig, AnthropicConfig, PromptTemplate, ResponseParser } from "./types";
+import {
+    OpenAIConfig,
+    AnthropicConfig,
+    PromptTemplate,
+    ResponseParser,
+} from "./types";
 import { textParser } from "../parsers/structured";
 
 /**
@@ -21,25 +26,25 @@ export class NodeBuilder {
         topP?: number;
         frequencyPenalty?: number;
         presencePenalty?: number;
-        reasoning?: { effort: 'low' | 'medium' | 'high' };
+        reasoning?: { effort: "low" | "medium" | "high" };
         webSearch?: { enabled: boolean };
         systemPrompt?: string;
     }): LLMNode<TInput, TOutput> {
         const { promptTemplate, parser, systemPrompt, ...llmOptions } = config;
-        
+
         const llmConfig: OpenAIConfig = {
             provider: "openai",
             ...llmOptions,
-            providerOptions: systemPrompt ? { systemPrompt } : undefined
+            providerOptions: systemPrompt ? { systemPrompt } : undefined,
         };
-        
+
         return new LLMNode({
             promptTemplate,
             parser,
-            llmConfig
+            llmConfig,
         });
     }
-    
+
     /**
      * Create an Anthropic-based LLMNode with type-safe configuration
      */
@@ -52,31 +57,31 @@ export class NodeBuilder {
         temperature?: number;
         topK?: number;
         topP?: number;
-        thinking?: { type: 'enabled'; budget_tokens: number };
+        thinking?: { type: "enabled"; budget_tokens: number };
         webSearch?: {
             enabled: boolean;
             maxUses?: number;
             allowedDomains?: string[];
             userLocation?: string;
         };
-        stream?: boolean;
+        streaming?: boolean;
         systemPrompt?: string;
     }): LLMNode<TInput, TOutput> {
         const { promptTemplate, parser, systemPrompt, ...llmOptions } = config;
-        
+
         const llmConfig: AnthropicConfig = {
             provider: "anthropic",
             ...llmOptions,
-            providerOptions: systemPrompt ? { systemPrompt } : undefined
+            providerOptions: systemPrompt ? { systemPrompt } : undefined,
         };
-        
+
         return new LLMNode({
             promptTemplate,
             parser,
-            llmConfig
+            llmConfig,
         });
     }
-    
+
     /**
      * Create an OpenAI-based TextNode with type-safe configuration
      */
@@ -89,24 +94,24 @@ export class NodeBuilder {
         topP?: number;
         frequencyPenalty?: number;
         presencePenalty?: number;
-        reasoning?: { effort: 'low' | 'medium' | 'high' };
+        reasoning?: { effort: "low" | "medium" | "high" };
         webSearch?: { enabled: boolean };
         systemPrompt?: string;
     }): TextNode<TInput> {
         const { promptTemplate, systemPrompt, ...llmOptions } = config;
-        
+
         const llmConfig: OpenAIConfig = {
             provider: "openai",
             ...llmOptions,
-            providerOptions: systemPrompt ? { systemPrompt } : undefined
+            providerOptions: systemPrompt ? { systemPrompt } : undefined,
         };
-        
+
         return new TextNode({
             promptTemplate,
-            llmConfig
+            llmConfig,
         });
     }
-    
+
     /**
      * Create an Anthropic-based TextNode with type-safe configuration
      */
@@ -118,27 +123,27 @@ export class NodeBuilder {
         temperature?: number;
         topK?: number;
         topP?: number;
-        thinking?: { type: 'enabled'; budget_tokens: number };
+        thinking?: { type: "enabled"; budget_tokens: number };
         webSearch?: {
             enabled: boolean;
             maxUses?: number;
             allowedDomains?: string[];
             userLocation?: string;
         };
-        stream?: boolean;
+        streaming?: boolean;
         systemPrompt?: string;
     }): TextNode<TInput> {
         const { promptTemplate, systemPrompt, ...llmOptions } = config;
-        
+
         const llmConfig: AnthropicConfig = {
             provider: "anthropic",
             ...llmOptions,
-            providerOptions: systemPrompt ? { systemPrompt } : undefined
+            providerOptions: systemPrompt ? { systemPrompt } : undefined,
         };
-        
+
         return new TextNode({
             promptTemplate,
-            llmConfig
+            llmConfig,
         });
     }
 }

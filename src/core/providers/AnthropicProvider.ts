@@ -28,7 +28,7 @@ export class AnthropicProvider implements ILLMProvider {
             thinking,
             webSearch,
             providerOptions,
-            stream,
+            streaming,
         } = config;
 
         if (!maxTokens) {
@@ -45,7 +45,7 @@ export class AnthropicProvider implements ILLMProvider {
         if (temperature !== undefined) params.temperature = temperature;
         if (topK !== undefined) params.top_k = topK;
         if (topP !== undefined) params.top_p = topP;
-        if (stream !== undefined) params.stream = stream;
+        if (streaming !== undefined) params.streaming = streaming;
 
         // Add system prompt if provided
         if (providerOptions?.systemPrompt) {
