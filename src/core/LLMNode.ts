@@ -104,7 +104,6 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
             const tokenUsage: TokenUsage = {
                 inputTokens: response.usage.inputTokens,
                 outputTokens: response.usage.outputTokens,
-                researchTokens: response.usage.thinkingTokens, // Map thinking to research for backward compatibility
                 thinkingTokens: response.usage.thinkingTokens,
                 searchCount: response.usage.searchCount,
             };
@@ -147,20 +146,14 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
                         total.inputTokens + record.tokenUsage.inputTokens,
                     outputTokens:
                         total.outputTokens + record.tokenUsage.outputTokens,
-                    researchTokens:
-                        (total.researchTokens || 0) +
-                        (record.tokenUsage.researchTokens || 0),
                 };
             },
-            { inputTokens: 0, outputTokens: 0, researchTokens: 0 }
+            { inputTokens: 0, outputTokens: 0 }
         );
 
         return {
             ...usage,
-            totalTokens:
-                usage.inputTokens +
-                usage.outputTokens +
-                (usage.researchTokens || 0),
+            totalTokens: usage.inputTokens + usage.outputTokens,
         };
     }
 
@@ -204,14 +197,8 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
                     const nextUsage = (nextNode as any).getTotalTokenUsage();
                     usage.inputTokens += nextUsage.inputTokens;
                     usage.outputTokens += nextUsage.outputTokens;
-                    usage.researchTokens =
-                        (usage.researchTokens || 0) +
-                        (nextUsage.researchTokens || 0);
                     // Recompute total tokens
-                    usage.totalTokens =
-                        usage.inputTokens +
-                        usage.outputTokens +
-                        (usage.researchTokens || 0);
+                    usage.totalTokens = usage.inputTokens + usage.outputTokens;
                 }
                 return usage;
             },

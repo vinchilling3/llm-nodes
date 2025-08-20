@@ -4,7 +4,6 @@
 export type TokenUsage = {
     inputTokens: number;
     outputTokens: number;
-    researchTokens?: number; // Deprecated: use thinkingTokens instead
     thinkingTokens?: number; // For tracking reasoning/thinking tokens separately
     searchCount?: number; // For web search usage tracking
 };
@@ -36,9 +35,9 @@ export type LLMProvider = "openai" | "anthropic" | "grok" | "ollama" | string;
  */
 export interface WebSearchConfig {
     enabled: boolean;
-    maxUses?: number;        // Anthropic only
-    allowedDomains?: string[]; // Anthropic only  
-    userLocation?: string;    // Anthropic only
+    maxUses?: number; // Anthropic only
+    allowedDomains?: string[]; // Anthropic only
+    userLocation?: string; // Anthropic only
 }
 
 /**
@@ -66,7 +65,7 @@ export interface OpenAIConfig extends BaseLLMConfig {
     presencePenalty?: number;
     topP?: number;
     reasoning?: {
-        effort: 'low' | 'medium' | 'high';
+        effort: "low" | "medium" | "high";
     };
     webSearch?: WebSearchConfig;
     tools?: any[]; // For future tool support
@@ -81,7 +80,7 @@ export interface AnthropicConfig extends BaseLLMConfig {
     topK?: number;
     topP?: number;
     thinking?: {
-        type: 'enabled';
+        type: "enabled";
         budget_tokens: number; // Min 1024
     };
     webSearch?: WebSearchConfig;
@@ -130,12 +129,15 @@ export type LLMConfig =
 /**
  * Helper type to extract config for a specific provider
  */
-export type ConfigForProvider<P extends LLMProvider> = 
-    P extends "openai" ? OpenAIConfig :
-    P extends "anthropic" ? AnthropicConfig :
-    P extends "grok" ? GrokConfig :
-    P extends "ollama" ? OllamaConfig :
-    OtherProviderConfig;
+export type ConfigForProvider<P extends LLMProvider> = P extends "openai"
+    ? OpenAIConfig
+    : P extends "anthropic"
+    ? AnthropicConfig
+    : P extends "grok"
+    ? GrokConfig
+    : P extends "ollama"
+    ? OllamaConfig
+    : OtherProviderConfig;
 
 /**
  * A prompt template, either as a string with variables or a function
@@ -147,7 +149,6 @@ export type PromptTemplate<TInput> = string | ((input: TInput) => string);
  */
 export type ResponseParser<TOutput> = (rawResponse: string) => TOutput;
 
-
 /**
  * Configuration options for all LLM nodes
  */
@@ -155,7 +156,7 @@ export type GeneralNodeOptions<TInput, TOutput> = {
     promptTemplate: PromptTemplate<TInput>;
     llmConfig: LLMConfig;
     inputPreprocessor?: (input: TInput) => any;
-}
+};
 
 /**
  * Configuration options for an LLMNode
