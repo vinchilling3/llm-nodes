@@ -4,7 +4,9 @@
 export type TokenUsage = {
     inputTokens: number;
     outputTokens: number;
-    researchTokens?: number; // For tracking reasoning/thinking tokens separately
+    researchTokens?: number; // Deprecated: use thinkingTokens instead
+    thinkingTokens?: number; // For tracking reasoning/thinking tokens separately
+    searchCount?: number; // For web search usage tracking
 };
 
 /**
@@ -30,6 +32,16 @@ export interface IExecutable<TInput, TOutput> {
 export type LLMProvider = "openai" | "anthropic" | "grok" | "ollama" | string;
 
 /**
+ * Web search configuration
+ */
+export interface WebSearchConfig {
+    enabled: boolean;
+    maxUses?: number;        // Anthropic only
+    allowedDomains?: string[]; // Anthropic only  
+    userLocation?: string;    // Anthropic only
+}
+
+/**
  * Base configuration options common to all LLM providers
  */
 export interface BaseLLMConfig {
@@ -37,7 +49,6 @@ export interface BaseLLMConfig {
     model: string;
     temperature?: number;
     maxTokens?: number;
-    enableResearch?: boolean; // Enable research/thinking mode for compatible models
     providerOptions?: {
         systemPrompt?: string;
         [key: string]: any;
@@ -56,8 +67,9 @@ export interface OpenAIConfig extends BaseLLMConfig {
     topP?: number;
     reasoning?: {
         effort: 'low' | 'medium' | 'high';
-        summary?: 'auto' | 'concise' | 'detailed';
     };
+    webSearch?: WebSearchConfig;
+    tools?: any[]; // For future tool support
 }
 
 /**
@@ -68,11 +80,12 @@ export interface AnthropicConfig extends BaseLLMConfig {
     apiKey?: string;
     topK?: number;
     topP?: number;
-    maxTokensToSample?: number;
     thinking?: {
         type: 'enabled';
-        budget_tokens: number;
+        budget_tokens: number; // Min 1024
     };
+    webSearch?: WebSearchConfig;
+    stream?: boolean; // Streaming flag (for future use)
 }
 
 /**
@@ -104,6 +117,8 @@ export interface OtherProviderConfig extends BaseLLMConfig {
 
 /**
  * Union type of all supported LLM configurations
+ * This is a discriminated union - TypeScript will enforce provider-specific fields
+ * based on the provider property value
  */
 export type LLMConfig =
     | OpenAIConfig
@@ -111,6 +126,16 @@ export type LLMConfig =
     | GrokConfig
     | OllamaConfig
     | OtherProviderConfig;
+
+/**
+ * Helper type to extract config for a specific provider
+ */
+export type ConfigForProvider<P extends LLMProvider> = 
+    P extends "openai" ? OpenAIConfig :
+    P extends "anthropic" ? AnthropicConfig :
+    P extends "grok" ? GrokConfig :
+    P extends "ollama" ? OllamaConfig :
+    OtherProviderConfig;
 
 /**
  * A prompt template, either as a string with variables or a function

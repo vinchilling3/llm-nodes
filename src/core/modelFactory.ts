@@ -1,47 +1,13 @@
-import { BaseChatModel } from "@langchain/core/language_models/chat_models";
-import { ChatOpenAI } from "@langchain/openai";
-import { ChatAnthropic } from "@langchain/anthropic";
-import { ChatVertexAI } from "@langchain/google-vertexai";
-import { ChatOllama } from "@langchain/ollama";
-import { SystemMessage, HumanMessage, BaseMessage } from "@langchain/core/messages";
 import * as dotenv from 'dotenv';
+import { ILLMProvider } from './providers/ILLMProvider';
+import { OpenAIProvider } from './providers/OpenAIProvider';
+import { AnthropicProvider } from './providers/AnthropicProvider';
+import { LLMConfig, LLMProvider, OpenAIConfig, AnthropicConfig } from "./types";
 
 // Load environment variables from .env file
 dotenv.config();
 
-import {
-    LLMConfig,
-    LLMProvider,
-    OpenAIConfig,
-    AnthropicConfig,
-    GrokConfig,
-    OllamaConfig,
-} from "./types";
-
 export const DEFAULT_TEMPERATURE = 0.7;
-
-/**
- * List of OpenAI models that support reasoning/research mode
- */
-export const OPENAI_REASONING_MODELS = ['o1-preview', 'o1-mini', 'o3', 'o3-mini', 'o4-mini'];
-
-/**
- * List of Anthropic models that support thinking mode
- */
-export const ANTHROPIC_THINKING_MODELS = ['claude-3-7-sonnet', 'claude-3.7-sonnet', 'claude-3-7-sonnet-latest'];
-
-/**
- * Check if a model supports research/reasoning features
- */
-export function supportsResearchMode(provider: string, model: string): boolean {
-    if (provider === 'openai') {
-        return OPENAI_REASONING_MODELS.some(m => model.includes(m));
-    }
-    if (provider === 'anthropic') {
-        return ANTHROPIC_THINKING_MODELS.some(m => model.includes(m));
-    }
-    return false;
-}
 
 /**
  * Type guard for OpenAI config
@@ -60,119 +26,19 @@ export function isAnthropicConfig(
 }
 
 /**
- * Type guard for Grok config
- */
-export function isGrokConfig(config: LLMConfig): config is GrokConfig {
-    return config.provider === "grok";
-}
-
-/**
- * Type guard for Ollama config
- */
-export function isOllamaConfig(config: LLMConfig): config is OllamaConfig {
-    return config.provider === "ollama";
-}
-
-/**
- * Creates an instance of a chat model based on the provided configuration
+ * Creates an instance of an LLM provider based on the provided configuration
  * @param config The LLM configuration
- * @returns A chat model instance
+ * @returns An LLM provider instance
  * @throws Error if the provider is not supported
  */
-export function createModel(config: LLMConfig): BaseChatModel {
-    // Extract common options
-    const { provider, model, maxTokens, temperature } = config;
-
-    switch (provider) {
-        case "openai": {
-            const {
-                apiKey,
-                organization,
-                frequencyPenalty,
-                presencePenalty,
-                topP,
-                enableResearch,
-                reasoning,
-                ...rest
-            } = config as OpenAIConfig;
-            
-            // Build configuration
-            const openAIConfig: any = {
-                modelName: model,
-                temperature: temperature ?? DEFAULT_TEMPERATURE,
-                maxTokens,
-                openAIApiKey: apiKey,
-                frequencyPenalty,
-                presencePenalty,
-                topP,
-                ...rest,
-            };
-            
-            // Add reasoning configuration for compatible models
-            if (enableResearch && supportsResearchMode('openai', model)) {
-                // Use provided reasoning config or defaults
-                openAIConfig.reasoning = reasoning || {
-                    effort: 'medium',
-                    summary: 'auto'
-                };
-            }
-            
-            return new ChatOpenAI(openAIConfig);
-        }
-
-        case "anthropic": {
-            const { apiKey, topK, topP, maxTokensToSample, enableResearch, thinking, ...rest } =
-                config as AnthropicConfig;
-            
-            // Build configuration
-            const anthropicConfig: any = {
-                modelName: model,
-                temperature: temperature ?? DEFAULT_TEMPERATURE,
-                maxTokens,
-                anthropicApiKey: apiKey,
-                topK,
-                topP,
-                maxTokensToSample: maxTokensToSample ?? maxTokens,
-                ...rest,
-            };
-            
-            // Add thinking configuration for compatible models
-            if (enableResearch && supportsResearchMode('anthropic', model)) {
-                // Use provided thinking config or defaults
-                anthropicConfig.thinking = thinking || {
-                    type: 'enabled',
-                    budget_tokens: 1000
-                };
-            }
-            
-            return new ChatAnthropic(anthropicConfig);
-        }
-
-        case "grok": {
-            // For Grok, we use the Vertex AI interface as it's a common approach
-            const { apiKey, topP, ...rest } = config as GrokConfig;
-            return new ChatVertexAI({
-                temperature: temperature ?? DEFAULT_TEMPERATURE,
-                maxOutputTokens: maxTokens,
-                topP,
-                ...rest,
-            });
-        }
-
-        case "ollama": {
-            const { baseUrl, format, keepAlive, numKeep, ...rest } =
-                config as OllamaConfig;
-            return new ChatOllama({
-                temperature: temperature ?? DEFAULT_TEMPERATURE,
-                baseUrl,
-                format,
-                numKeep,
-                ...rest,
-            });
-        }
-
+export function createProvider(config: LLMConfig): ILLMProvider {
+    switch(config.provider) {
+        case 'openai':
+            return new OpenAIProvider((config as OpenAIConfig).apiKey);
+        case 'anthropic':
+            return new AnthropicProvider((config as AnthropicConfig).apiKey);
         default:
-            throw new Error(`Unsupported LLM provider: ${provider}`);
+            throw new Error(`Provider ${config.provider} not supported. Use 'openai' or 'anthropic'.`);
     }
 }
 
@@ -187,50 +53,7 @@ export function getApiKeyEnvVar(provider: LLMProvider): string {
             return "OPENAI_API_KEY";
         case "anthropic":
             return "ANTHROPIC_API_KEY";
-        case "mistral":
-            return "MISTRAL_API_KEY";
-        case "grok":
-            return "GROK_API_KEY";
-        case "cohere":
-            return "COHERE_API_KEY";
         default:
             return `${provider.toUpperCase()}_API_KEY`;
     }
-}
-
-/**
- * Determine if the provider supports system messages directly
- * @param provider The LLM provider
- * @returns True if the provider supports system messages
- */
-export function supportsSystemMessages(provider: LLMProvider): boolean {
-    return ["openai", "anthropic", "mistral"].includes(provider);
-}
-
-/**
- * Creates an array of LangChain message objects based on the input text and LLM configuration
- * @param text The user input text
- * @param config The LLM configuration
- * @returns An array of LangChain message objects
- */
-export function createMessages(text: string, config: LLMConfig): BaseMessage[] {
-    const messages: BaseMessage[] = [];
-    const provider = config.provider;
-    const systemPrompt = config.providerOptions?.systemPrompt;
-
-    // Add system message if present and supported
-    if (systemPrompt) {
-        if (supportsSystemMessages(provider)) {
-            messages.push(new SystemMessage(systemPrompt));
-        } else {
-            // For providers that don't support system messages,
-            // prepend it to the user message
-            text = `${systemPrompt}\n\n${text}`;
-        }
-    }
-
-    // Add user message
-    messages.push(new HumanMessage(text));
-
-    return messages;
 }

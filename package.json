@@ -36,14 +36,9 @@
     "author": "Ty Van Roy <tyvanroy@gmail.com>",
     "license": "MIT",
     "dependencies": {
-        "@langchain/anthropic": "^0.3.26",
-        "@langchain/core": "^0.3.71",
-        "@langchain/google-vertexai": "^0.2.16",
-        "@langchain/ollama": "^0.2.3",
-        "@langchain/openai": "^0.6.7",
+        "@anthropic-ai/sdk": "^0.60.0",
         "dotenv": "^16.4.7",
-        "google-auth-library": "^8.9.0",
-        "langchain": "^0.3.30",
+        "openai": "^5.13.1",
         "ts-node": "^10.9.2",
         "zod": "^3.22.4"
     },

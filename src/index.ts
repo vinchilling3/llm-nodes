@@ -3,6 +3,8 @@ export { LLMNode } from "./core/LLMNode";
 export {
     IExecutable,
     LLMConfig,
+    OpenAIConfig,
+    AnthropicConfig,
     BaseNodeOptions,
     GeneralNodeOptions,
     PromptTemplate,
@@ -13,10 +15,13 @@ export {
 } from "./core/types";
 export { 
     getApiKeyEnvVar,
-    supportsResearchMode,
-    OPENAI_REASONING_MODELS,
-    ANTHROPIC_THINKING_MODELS
+    createProvider
 } from "./core/modelFactory";
+
+// Provider exports
+export { ILLMProvider, LLMResponse } from "./core/providers/ILLMProvider";
+export { OpenAIProvider } from "./core/providers/OpenAIProvider";
+export { AnthropicProvider } from "./core/providers/AnthropicProvider";
 
 // Parser exports
 export { jsonParser, jsonFieldParser } from "./parsers/json";

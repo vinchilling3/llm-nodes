@@ -7,15 +7,15 @@ import {
     TokenUsage,
     UsageRecord
 } from "./types";
-import { BaseChatModel } from "@langchain/core/language_models/chat_models";
-import { createModel, createMessages } from "./modelFactory";
+import { ILLMProvider } from "./providers/ILLMProvider";
+import { createProvider } from "./modelFactory";
 
 /**
  * LLMNode encapsulates an LLM interaction with prompt templating and response parsing
  */
 export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
     protected promptTemplate: PromptTemplate<TInput>;
-    protected llm: BaseChatModel;
+    protected provider: ILLMProvider;
     protected inputPreprocessor: (input: TInput) => any;
     protected parser: ResponseParser<TOutput>;
     protected llmConfig: LLMConfig;
@@ -32,9 +32,11 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
             ...options.llmConfig,
             provider: options.llmConfig.provider || "openai",
         } as LLMConfig;
+        
+        this.llmConfig = config;
 
-        // Initialize LLM from config using the factory
-        this.llm = createModel(config);
+        // Initialize provider from config using the factory
+        this.provider = createProvider(config);
     }
 
     /**
@@ -93,52 +95,23 @@ export class LLMNode<TInput, TOutput> implements IExecutable<TInput, TOutput> {
     async execute(input: TInput): Promise<TOutput> {
         const promptText = this.generatePrompt(input);
 
-        // Create messages using the factory method
-        const messages = createMessages(promptText, this.llmConfig);
+        // Use provider's invoke method
+        const response = await this.provider.invoke(promptText, this.llmConfig);
 
-        // Call the LLM using invoke method for better metadata support
-        const response = await this.llm.invoke(messages);
-
-        // Record token usage if available in the response
-        // Modern LangChain returns usage data in usage_metadata on AIMessage responses
-        if (response && typeof response === 'object' && 'usage_metadata' in response) {
-            const usageMetadata = (response as any).usage_metadata;
-            if (usageMetadata) {
-                const tokenUsage: TokenUsage = {
-                    inputTokens: usageMetadata.input_tokens || 0,
-                    outputTokens: usageMetadata.output_tokens || 0
-                };
-                
-                // For reasoning models, check output_token_details for reasoning tokens
-                if (usageMetadata.output_token_details?.reasoning) {
-                    tokenUsage.researchTokens = usageMetadata.output_token_details.reasoning;
-                }
-                
-                this.recordUsage(tokenUsage);
-            }
-        } else {
-            // Fallback: try to extract usage from older response formats
-            // @ts-ignore - Access usage info that may exist on the underlying response object
-            const usage = (response as any)?.usage || (response as any)?._llmResult?.usage || null;
-            if (usage) {
-                const tokenUsage: TokenUsage = {
-                    inputTokens: usage.promptTokens || usage.promptTokenCount || usage.prompt_tokens || 0,
-                    outputTokens: usage.completionTokens || usage.completionTokenCount || usage.completion_tokens || 0
-                };
-                
-                // For reasoning models in older formats
-                if (usage.reasoningTokens || usage.reasoning_tokens || usage.thinkingTokens || usage.thinking_tokens) {
-                    tokenUsage.researchTokens = usage.reasoningTokens || usage.reasoning_tokens || 
-                                              usage.thinkingTokens || usage.thinking_tokens || 0;
-                }
-                
-                this.recordUsage(tokenUsage);
-            }
+        // Record token usage
+        if (response.usage) {
+            const tokenUsage: TokenUsage = {
+                inputTokens: response.usage.inputTokens,
+                outputTokens: response.usage.outputTokens,
+                researchTokens: response.usage.thinkingTokens, // Map thinking to research for backward compatibility
+                thinkingTokens: response.usage.thinkingTokens,
+                searchCount: response.usage.searchCount
+            };
+            this.recordUsage(tokenUsage);
         }
 
-        // Parse the response - handle both AIMessage and string responses
-        const content = typeof response === 'string' ? response : (response as any).content;
-        return this.parser(content as string);
+        // Parse and return
+        return this.parser(response.content);
     }
 
     /**
