@@ -64,7 +64,7 @@ export class NodeBuilder {
             allowedDomains?: string[];
             userLocation?: string;
         };
-        streaming?: boolean;
+        stream?: boolean;
         systemPrompt?: string;
     }): LLMNode<TInput, TOutput> {
         const { promptTemplate, parser, systemPrompt, ...llmOptions } = config;
@@ -130,7 +130,7 @@ export class NodeBuilder {
             allowedDomains?: string[];
             userLocation?: string;
         };
-        streaming?: boolean;
+        stream?: boolean;
         systemPrompt?: string;
     }): TextNode<TInput> {
         const { promptTemplate, systemPrompt, ...llmOptions } = config;

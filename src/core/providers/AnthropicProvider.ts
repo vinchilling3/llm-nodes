@@ -1,6 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { ILLMProvider, LLMResponse } from "./ILLMProvider";
 import { AnthropicConfig } from "../types";
+import { Stream } from "@anthropic-ai/sdk/core/streaming";
+import { RawMessageStreamEvent } from "@anthropic-ai/sdk/resources/messages";
 
 /**
  * Anthropic provider implementation
@@ -28,7 +30,7 @@ export class AnthropicProvider implements ILLMProvider {
             thinking,
             webSearch,
             providerOptions,
-            streaming,
+            stream: stream,
         } = config;
 
         if (!maxTokens) {
@@ -45,7 +47,7 @@ export class AnthropicProvider implements ILLMProvider {
         if (temperature !== undefined) params.temperature = temperature;
         if (topK !== undefined) params.top_k = topK;
         if (topP !== undefined) params.top_p = topP;
-        if (streaming !== undefined) params.streaming = streaming;
+        if (stream !== undefined) params.stream = stream;
 
         // Add system prompt if provided
         if (providerOptions?.systemPrompt) {
@@ -84,11 +86,21 @@ export class AnthropicProvider implements ILLMProvider {
         let content = "";
         let thinkingContent = "";
 
-        for (const block of response.content) {
-            if (block.type === "text") {
-                content += block.text;
-            } else if ((block as any).type === "thinking") {
-                thinkingContent += (block as any).text;
+        // Stream response handling
+        if (stream) {
+            // TODO: Type this
+            for await (const messageStreamEvent of response as any) {
+                if (messageStreamEvent.type === "content_block_delta") {
+                    content += messageStreamEvent.delta.text;
+                }
+            }
+        } else {
+            for (const block of response.content) {
+                if (block.type === "text") {
+                    content += block.text;
+                } else if ((block as any).type === "thinking") {
+                    thinkingContent += (block as any).text;
+                }
             }
         }
 

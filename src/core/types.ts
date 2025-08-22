@@ -84,7 +84,7 @@ export interface AnthropicConfig extends BaseLLMConfig {
         budget_tokens: number; // Min 1024
     };
     webSearch?: WebSearchConfig;
-    streaming?: boolean; // Streaming flag for large responses
+    stream?: boolean; // Streaming flag for large responses
 }
 
 /**

@@ -15,7 +15,8 @@ export default async function main() {
         llmConfig: {
             provider: "anthropic",
             model: "claude-3-7-sonnet-20250219",
-            maxTokens: 10000,
+            maxTokens: 50000,
+            stream: true,
         },
     });
 
