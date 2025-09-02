@@ -2,7 +2,12 @@ import Anthropic from "@anthropic-ai/sdk";
 import { ILLMProvider, LLMResponse } from "./ILLMProvider";
 import { AnthropicConfig } from "../types";
 import { Stream } from "@anthropic-ai/sdk/core/streaming";
-import { RawMessageStreamEvent } from "@anthropic-ai/sdk/resources/messages";
+import { 
+    RawMessageStreamEvent, 
+    Message,
+    MessageCreateParamsNonStreaming,
+    MessageCreateParamsStreaming 
+} from "@anthropic-ai/sdk/resources/messages";
 
 /**
  * Anthropic provider implementation
@@ -37,69 +42,84 @@ export class AnthropicProvider implements ILLMProvider {
             throw new Error("maxTokens is required for Anthropic models");
         }
 
-        const params: any = {
+        const baseParams = {
             model,
             max_tokens: maxTokens,
-            messages: [{ role: "user", content: prompt }],
+            messages: [{ role: "user" as const, content: prompt }],
+            ...(temperature !== undefined && { temperature }),
+            ...(topK !== undefined && { top_k: topK }),
+            ...(topP !== undefined && { top_p: topP }),
+            ...(providerOptions?.systemPrompt && { system: providerOptions.systemPrompt }),
+            ...(thinking && { thinking }),
+            ...(webSearch?.enabled && {
+                tools: [{
+                    type: "web_search_20250305" as const,
+                    name: "web_search" as const,
+                    ...(webSearch.maxUses !== undefined && { max_uses: webSearch.maxUses }),
+                    ...(webSearch.allowedDomains && { allowed_domains: webSearch.allowedDomains }),
+                    ...(webSearch.userLocation && { user_location: webSearch.userLocation }),
+                }]
+            }),
         };
 
-        // Add optional parameters
-        if (temperature !== undefined) params.temperature = temperature;
-        if (topK !== undefined) params.top_k = topK;
-        if (topP !== undefined) params.top_p = topP;
-        if (stream !== undefined) params.stream = stream;
-
-        // Add system prompt if provided
-        if (providerOptions?.systemPrompt) {
-            params.system = providerOptions.systemPrompt;
-        }
-
-        // Add extended thinking if configured
-        if (thinking) {
-            params.thinking = thinking;
-        }
-
-        // Add web search if configured
-        if (webSearch?.enabled) {
-            const toolConfig: any = {
-                type: "web_search_20250305",
-                name: "web_search",
-            };
-
-            // Add optional web search parameters
-            if (webSearch.maxUses !== undefined) {
-                toolConfig.max_uses = webSearch.maxUses;
-            }
-            if (webSearch.allowedDomains) {
-                toolConfig.allowed_domains = webSearch.allowedDomains;
-            }
-            if (webSearch.userLocation) {
-                toolConfig.user_location = webSearch.userLocation;
-            }
-
-            params.tools = [toolConfig];
-        }
-
-        const response = await this.client.messages.create(params);
+        const response = stream 
+            ? await this.client.messages.create({
+                ...baseParams,
+                stream: true,
+            } as MessageCreateParamsStreaming)
+            : await this.client.messages.create({
+                ...baseParams,
+                stream: false,
+            } as MessageCreateParamsNonStreaming);
 
         // Extract content and thinking
         let content = "";
         let thinkingContent = "";
+        let usage: Message["usage"] | undefined;
 
         // Stream response handling
         if (stream) {
-            // TODO: Type this
-            for await (const messageStreamEvent of response as any) {
-                if (messageStreamEvent.type === "content_block_delta") {
-                    content += messageStreamEvent.delta.text;
+            const streamResponse = response as Stream<RawMessageStreamEvent>;
+            
+            for await (const event of streamResponse) {
+                switch (event.type) {
+                    case "message_start":
+                        usage = event.message.usage;
+                        break;
+                    case "message_delta":
+                        // Update usage with delta
+                        if (event.usage) {
+                            usage = {
+                                ...usage,
+                                output_tokens: (usage?.output_tokens || 0) + (event.usage.output_tokens || 0),
+                            } as Message["usage"];
+                        }
+                        break;
+                    case "content_block_start":
+                        if (event.content_block.type === "text") {
+                            content += event.content_block.text;
+                        } else if (event.content_block.type === "thinking") {
+                            thinkingContent += event.content_block.thinking;
+                        }
+                        break;
+                    case "content_block_delta":
+                        if (event.delta.type === "text_delta") {
+                            content += event.delta.text;
+                        } else if (event.delta.type === "thinking_delta") {
+                            thinkingContent += event.delta.thinking;
+                        }
+                        break;
                 }
             }
         } else {
-            for (const block of response.content) {
+            const messageResponse = response as Message;
+            usage = messageResponse.usage;
+            
+            for (const block of messageResponse.content) {
                 if (block.type === "text") {
                     content += block.text;
                 } else if ((block as any).type === "thinking") {
-                    thinkingContent += (block as any).text;
+                    thinkingContent += (block as any).thinking;
                 }
             }
         }
@@ -107,13 +127,13 @@ export class AnthropicProvider implements ILLMProvider {
         // Calculate thinking tokens (rough estimate if not provided)
         // Anthropic includes thinking tokens in output tokens
         let thinkingTokens = 0;
-        if (thinking && response.usage) {
+        if (thinking && usage) {
             // Rough estimate: thinking tokens = total output - content length/4
             // This is an approximation since we don't get exact thinking token count
             const contentTokenEstimate = Math.ceil(content.length / 4);
             thinkingTokens = Math.max(
                 0,
-                (response.usage.output_tokens || 0) - contentTokenEstimate
+                (usage.output_tokens || 0) - contentTokenEstimate
             );
         }
 
@@ -121,10 +141,10 @@ export class AnthropicProvider implements ILLMProvider {
             content,
             thinking: thinkingContent || undefined,
             usage: {
-                inputTokens: response.usage?.input_tokens || 0,
-                outputTokens: response.usage?.output_tokens || 0,
+                inputTokens: usage?.input_tokens || 0,
+                outputTokens: usage?.output_tokens || 0,
                 thinkingTokens: thinkingTokens,
-                searchCount: (response as any).usage?.search_count,
+                searchCount: (usage as any)?.search_count,
             },
             raw: response,
         };
