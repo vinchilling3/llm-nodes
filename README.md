@@ -1,3 +1,9 @@
+This is a fork of [Ty Van Roy](https://github.com/TyVanRoy/llm-nodes).
+
+## Changes in This Fork
+
+- Added support for Google Gemini as a provider for llm.
+
 # llm-nodes
 
 A lightweight, composable TypeScript library for working with LLMs that extends LangChain with a simpler, more intuitive API.
