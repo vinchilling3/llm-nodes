@@ -1,4 +1,4 @@
-This is a fork of [Ty Van Roy](https://github.com/TyVanRoy/llm-nodes).
+This is a fork of llm-nodes by [Ty Van Roy](https://github.com/TyVanRoy/llm-nodes).
 
 ## Changes in This Fork
 
